@@ -6,14 +6,22 @@ import { useRef } from 'react';
 import { Mesh } from 'three';
 
 export default function InvisibleFloor() {
+  const mode = useStore((state) => state.mode);
   const setCursorPosition = useStore((state) => state.setCursorPosition);
   const cursorPosition = useStore((state) => state.cursorPosition);
+  const addFurniture = useStore((state) => state.addFurniture);
   
   const ghostRef = useRef<Mesh>(null);
 
   const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
     // 바닥과 교차된 지점을 스토어에 업데이트
     setCursorPosition(e.point);
+  };
+
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (mode === 'PLACE') {
+      addFurniture(e.point);
+    }
   };
 
   return (
@@ -24,6 +32,7 @@ export default function InvisibleFloor() {
         position={[0, -1.5, 0]} 
         visible={false}
         onPointerMove={handlePointerMove}
+        onClick={handleClick}
       >
         <planeGeometry args={[100, 100]} />
         <meshBasicMaterial />

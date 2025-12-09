@@ -3,10 +3,13 @@
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
 import { Suspense } from 'react';
+import { useStore } from '@/store/useStore';
 import PanoramaSphere from './3d/PanoramaSphere';
 import InvisibleFloor from './3d/InvisibleFloor';
 
 export default function Scene() {
+  const furnitures = useStore((state) => state.furnitures);
+
   return (
     <div className="h-screen w-full bg-gray-900">
       <Canvas>
@@ -20,6 +23,15 @@ export default function Scene() {
         </Suspense>
 
         <InvisibleFloor />
+
+        {/* Furnitures Rendering */}
+        {furnitures.map((item) => (
+          <mesh key={item.id} position={item.position}>
+            {/* 임시 가구 모델: 파란색 상자 */}
+            <boxGeometry args={[0.5, 0.5, 0.5]} />
+            <meshStandardMaterial color="blue" />
+          </mesh>
+        ))}
 
         {/* 시점 회전만 가능하게 제한 (줌, 이동 비활성화) */}
         <OrbitControls 
