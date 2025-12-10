@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import ControlBar from '@/components/ui/ControlBar';
 import ChatInterface from '@/components/ui/ChatInterface';
 import FurnitureSidebar from '@/components/ui/FurnitureSidebar';
+import CalibrationPanel from '@/components/ui/CalibrationPanel';
 import LandingScreen from '@/components/ui/LandingScreen';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { useStore } from '@/store/useStore';
@@ -77,6 +78,7 @@ export default function Home() {
       {/* UI Layer (Foreground) - 로딩이 끝난 후에만 표시 */}
       {!isLoading && (
         <div className="absolute inset-0 z-20 pointer-events-none animate-fade-in">
+          <CalibrationPanel />
           <FurnitureSidebar />
           <ControlBar />
           <ChatInterface />

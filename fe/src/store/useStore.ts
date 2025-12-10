@@ -17,12 +17,19 @@ interface AppState {
   textureUrl: string | null; // 방 이미지
   userPrompt: string;
   isLoading: boolean;
+  selectedFurnitureId: string | null;
+  roomSize: { width: number; depth: number };
+  isDebugMode: boolean;
   setMode: (mode: Mode) => void;
   setCursorPosition: (position: [number, number, number] | Vector3) => void;
   addFurniture: (position: [number, number, number] | Vector3) => void;
+  updateFurniture: (id: string, changes: Partial<Furniture>) => void;
+  setSelectedFurnitureId: (id: string | null) => void;
   setTextureUrl: (url: string) => void;
   setUserPrompt: (prompt: string) => void;
   setIsLoading: (loading: boolean) => void;
+  setRoomSize: (size: { width: number; depth: number }) => void;
+  setIsDebugMode: (isDebug: boolean) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -32,6 +39,9 @@ export const useStore = create<AppState>((set) => ({
   textureUrl: null, // 초기값 null -> Landing Page 표시
   userPrompt: '',
   isLoading: false,
+  selectedFurnitureId: null,
+  roomSize: { width: 12, depth: 8 }, // 초기값: 가로 12m, 세로 8m
+  isDebugMode: true,
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
     // Vector3 객체가 들어올 경우 배열로 변환
@@ -51,7 +61,15 @@ export const useStore = create<AppState>((set) => ({
     };
     set((state) => ({ furnitures: [...state.furnitures, newFurniture] }));
   },
+  updateFurniture: (id, changes) => set((state) => ({
+    furnitures: state.furnitures.map((f) => 
+      f.id === id ? { ...f, ...changes } : f
+    ),
+  })),
+  setSelectedFurnitureId: (id) => set({ selectedFurnitureId: id }),
   setTextureUrl: (url) => set({ textureUrl: url }),
   setUserPrompt: (prompt) => set({ userPrompt: prompt }),
   setIsLoading: (loading) => set({ isLoading: loading }),
+  setRoomSize: (size) => set({ roomSize: size }),
+  setIsDebugMode: (isDebug) => set({ isDebugMode: isDebug }),
 }));
