@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { FURNITURE_DATA } from '@/data/mockData';
+// import { FURNITURE_DATA } from '@/data/mockData'; // Remove hardcoded import
 
 export default function FurnitureSidebar() {
   const [activeCard, setActiveCard] = useState<number | null>(null);
   const setMode = useStore((state) => state.setMode);
+  const furnitureList = useStore((state) => state.currentFurnitureList); // 동적 목록 사용
 
   const handleCardClick = (idx: number, name: string) => {
     setActiveCard(idx);
@@ -21,7 +22,19 @@ export default function FurnitureSidebar() {
     >
       <div className="space-y-4">
         <h2 className="text-xl font-bold text-white mb-6 drop-shadow-md">Recommended</h2>
-        {FURNITURE_DATA.map((item, idx) => (
+        
+        {furnitureList.length === 0 ? (
+          <div className="text-white text-base text-center py-12 bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md shadow-lg">
+            <p className="font-semibold text-lg">👋 Hello!</p>
+            <p className="mt-3 text-gray-100 leading-relaxed">
+              Please request a style<br/>via chat.
+            </p>
+            <div className="mt-5 text-sm text-blue-300 font-medium bg-blue-500/10 py-1.5 px-4 rounded-full border border-blue-400/20 w-fit mx-auto">
+              Ex: "Design a modern living room"
+            </div>
+          </div>
+        ) : (
+          furnitureList.map((item, idx) => (
           <div
             key={item.id}
             onClick={() => handleCardClick(idx, item.name)}
@@ -45,7 +58,7 @@ export default function FurnitureSidebar() {
               </div>
             </div>
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

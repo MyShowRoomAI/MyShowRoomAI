@@ -59,11 +59,13 @@ export default function InvisibleRoom() {
         />
       </mesh>
 
-      {/* Ghost Cube for Debugging / Preview */}
-      <mesh position={cursorPosition} ref={ghostRef}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color="cyan" transparent opacity={0.5} />
-      </mesh>
+      {/* Ghost Cube for Debugging / Preview - Only visible in PLACE mode */}
+      {mode === 'PLACE' && (
+        <mesh position={cursorPosition} ref={ghostRef}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshStandardMaterial color="cyan" transparent opacity={0.5} />
+        </mesh>
+      )}
     </>
   );
 }

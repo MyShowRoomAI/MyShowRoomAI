@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
+import { useStore } from '@/store/useStore';
+import { fetchAiDesignResponse } from '@/api/mockApi';
 
 interface Message {
   id: number;
@@ -10,20 +12,37 @@ interface Message {
 }
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, sender: 'gemini', text: "I notice you have a warm, minimalist aesthetic. I'd recommend a natural linen sofa to complement your space." },
-    { id: 2, sender: 'user', text: 'That sounds perfect. What about accent colors?' },
-    { id: 3, sender: 'gemini', text: 'Soft terracotta or sage green would beautifully accent your beige palette while maintaining the minimalist vibe.' }
-  ]);
+  const messages = useStore((state) => state.messages);
+  const addMessage = useStore((state) => state.addMessage);
+  const setFurnitureList = useStore((state) => state.setFurnitureList);
+  
   const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendMessage = () => {
-    if (inputValue.trim()) {
-      setMessages([...messages, { id: messages.length + 1, sender: 'user', text: inputValue }]);
-      setInputValue('');
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: prev.length + 1, sender: 'gemini', text: "That's a great choice! This piece will complement your space beautifully." }]);
-      }, 500);
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isLoading) return;
+
+    // 1. 사용자 메시지 추가
+    const userMsg = inputValue;
+    addMessage({ sender: 'user', text: userMsg });
+    setInputValue('');
+    setIsLoading(true);
+
+    try {
+      // 2. API 호출
+      const response = await fetchAiDesignResponse(userMsg);
+
+      // 3. AI 응답 처리
+      addMessage({ sender: 'gemini', text: response.ai_message });
+      
+      // 4. 가구 목록 업데이트
+      setFurnitureList(response.new_furniture_items);
+      
+    } catch (error) {
+      console.error("API Error:", error);
+      addMessage({ sender: 'gemini', text: "Sorry, I couldn't process your request." });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,6 +77,13 @@ export default function ChatInterface() {
             </div>
           </div>
         ))}
+        {isLoading && (
+          <div className="flex justify-start">
+             <div className="bg-white/15 text-gray-100 px-4 py-2 rounded-2xl rounded-bl-none text-sm animate-pulse">
+               Thinking...
+             </div>
+          </div>
+        )}
       </div>
 
       <div className="p-4 border-t border-white/20">
@@ -68,11 +94,13 @@ export default function ChatInterface() {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Ask for recommendations..."
-            className="flex-1 bg-white/10 border border-white/20 text-white placeholder-gray-400 px-4 py-2 rounded-full text-sm focus:outline-none focus:border-blue-400 focus:bg-white/15 transition-all"
+            disabled={isLoading}
+            className="flex-1 bg-white/10 border border-white/20 text-white placeholder-gray-400 px-4 py-2 rounded-full text-sm focus:outline-none focus:border-blue-400 focus:bg-white/15 transition-all disabled:opacity-50"
           />
           <button
             onClick={handleSendMessage}
-            className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full transition-colors"
+            disabled={isLoading}
+            className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-full transition-colors disabled:bg-gray-500"
           >
             <Send size={18} />
           </button>

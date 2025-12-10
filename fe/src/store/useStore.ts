@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Vector3 } from 'three';
+import { FurnitureItem, FURNITURE_DATA } from '@/data/mockData';
 
 type Mode = 'VIEW' | 'PLACE' | 'REMOVE';
 
@@ -30,6 +31,11 @@ interface AppState {
   setIsLoading: (loading: boolean) => void;
   setRoomSize: (size: { width: number; depth: number; height: number }) => void;
   setIsDebugMode: (isDebug: boolean) => void;
+  // Phase 8: Mock API & Dynamic Furniture List
+  currentFurnitureList: FurnitureItem[];
+  setFurnitureList: (list: FurnitureItem[]) => void;
+  messages: { id: number; sender: 'user' | 'gemini'; text: string }[];
+  addMessage: (msg: { sender: 'user' | 'gemini'; text: string }) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -42,6 +48,11 @@ export const useStore = create<AppState>((set) => ({
   selectedFurnitureId: null,
   roomSize: { width: 12, depth: 8, height: 3 }, // 초기값: 가로 12m, 세로 8m, 높이 3m
   isDebugMode: true,
+  
+  // Phase 8 Initial State
+  currentFurnitureList: [], // 초기값 빈 배열로 변경 (채팅 요청 전까지 숨김)
+  messages: [],
+
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
     // Vector3 객체가 들어올 경우 배열로 변환
@@ -72,4 +83,10 @@ export const useStore = create<AppState>((set) => ({
   setIsLoading: (loading) => set({ isLoading: loading }),
   setRoomSize: (size) => set({ roomSize: size }),
   setIsDebugMode: (isDebug) => set({ isDebugMode: isDebug }),
+  
+  // Phase 8 Actions
+  setFurnitureList: (list) => set({ currentFurnitureList: list }),
+  addMessage: (msg) => set((state) => ({
+    messages: [...state.messages, { id: Date.now(), ...msg }]
+  })),
 }));
