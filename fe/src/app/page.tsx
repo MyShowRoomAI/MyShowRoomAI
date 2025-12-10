@@ -3,11 +3,20 @@
 import dynamic from 'next/dynamic';
 import ControlBar from '@/components/ui/ControlBar';
 import ChatInterface from '@/components/ui/ChatInterface';
+import LandingScreen from '@/components/ui/LandingScreen';
+import { useStore } from '@/store/useStore';
 
 // SSR 방지를 위해 dynamic import 사용
 const Scene = dynamic(() => import('@/components/Scene'), { ssr: false });
 
 export default function Home() {
+  const textureUrl = useStore((state) => state.textureUrl);
+
+  // 이미지가 없으면 랜딩 페이지를 보여줌
+  if (!textureUrl) {
+    return <LandingScreen />;
+  }
+
   return (
     <main className="relative w-full h-screen bg-gray-900 overflow-hidden">
       {/* 3D Scene Layer (Background) */}

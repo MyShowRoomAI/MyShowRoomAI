@@ -14,18 +14,21 @@ interface AppState {
   mode: Mode; // view / place / remove
   cursorPosition: [number, number, number]; // [x, y, z]
   furnitures: Furniture[]; // 배치된 가구
-  textureUrl: string; // 방 이미지
+  textureUrl: string | null; // 방 이미지
+  userPrompt: string;
   setMode: (mode: Mode) => void;
   setCursorPosition: (position: [number, number, number] | Vector3) => void;
   addFurniture: (position: [number, number, number] | Vector3) => void;
   setTextureUrl: (url: string) => void;
+  setUserPrompt: (prompt: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
   mode: 'VIEW',
   cursorPosition: [0, 0, 0],
   furnitures: [],
-  textureUrl: 'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg', // Default texture
+  textureUrl: null, // 초기값 null -> Landing Page 표시
+  userPrompt: '',
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
     // Vector3 객체가 들어올 경우 배열로 변환
@@ -46,4 +49,5 @@ export const useStore = create<AppState>((set) => ({
     set((state) => ({ furnitures: [...state.furnitures, newFurniture] }));
   },
   setTextureUrl: (url) => set({ textureUrl: url }),
+  setUserPrompt: (prompt) => set({ userPrompt: prompt }),
 }));
