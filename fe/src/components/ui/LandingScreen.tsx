@@ -7,12 +7,13 @@ import { useStore } from '@/store/useStore';
 export default function LandingScreen() {
   const setTextureUrl = useStore((state) => state.setTextureUrl);
   const setUserPrompt = useStore((state) => state.setUserPrompt);
+  const setIsLoading = useStore((state) => state.setIsLoading);
 
   const [hasImage, setHasImage] = useState(false);
   const [hasText, setHasText] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
+  // 로컬 isLoading 제거, 전역 상태 사용
+
   // 로컬 State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -56,14 +57,12 @@ export default function LandingScreen() {
   const handleEnterShowroom = () => {
     if (!previewUrl) return;
     
+    // 1. 로딩 시작
     setIsLoading(true);
     
-    // 전환 효과를 위한 타임아웃
-    setTimeout(() => {
-      setTextureUrl(previewUrl);
-      setUserPrompt(prompt);
-      // isLoading 스테이트는 컴포넌트 언마운트로 인해 자연스럽게 사라짐
-    }, 800);
+    // 2. 데이터 세팅 (약간의 지연 없이 바로 세팅해도 무방, 순서는 로딩 먼저)
+    setTextureUrl(previewUrl);
+    setUserPrompt(prompt);
   };
 
   const isButtonActive = hasImage && hasText;
@@ -178,29 +177,20 @@ export default function LandingScreen() {
           {/* 메인 버튼 */}
           <div className="pt-4">
             <button
-              disabled={!isButtonActive || isLoading}
+              disabled={!isButtonActive}
               onClick={handleEnterShowroom}
               className={`w-full py-4 px-8 rounded-xl font-bold text-lg transition-all duration-300 transform ${
-                isButtonActive && !isLoading
+                isButtonActive
                   ? 'bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 text-white shadow-lg hover:shadow-2xl hover:scale-105 cursor-pointer active:scale-95'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
               <span className="flex items-center justify-center space-x-2">
-                {isLoading ? (
-                  <>
-                    <Loader2 className="animate-spin" />
-                    <span>Analyzing your room...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Enter AI Showroom</span>
-                    {isButtonActive && <span className="text-xl">✨</span>}
-                  </>
-                )}
+                <span>Enter AI Showroom</span>
+                {isButtonActive && <span className="text-xl">✨</span>}
               </span>
             </button>
-            {!isButtonActive && !isLoading && (
+            {!isButtonActive && (
               <p className="text-center text-sm text-gray-500 mt-3">
                 Please upload a photo and describe your style
               </p>

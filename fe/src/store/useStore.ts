@@ -16,11 +16,13 @@ interface AppState {
   furnitures: Furniture[]; // 배치된 가구
   textureUrl: string | null; // 방 이미지
   userPrompt: string;
+  isLoading: boolean;
   setMode: (mode: Mode) => void;
   setCursorPosition: (position: [number, number, number] | Vector3) => void;
   addFurniture: (position: [number, number, number] | Vector3) => void;
   setTextureUrl: (url: string) => void;
   setUserPrompt: (prompt: string) => void;
+  setIsLoading: (loading: boolean) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -29,6 +31,7 @@ export const useStore = create<AppState>((set) => ({
   furnitures: [],
   textureUrl: null, // 초기값 null -> Landing Page 표시
   userPrompt: '',
+  isLoading: false,
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
     // Vector3 객체가 들어올 경우 배열로 변환
@@ -50,4 +53,5 @@ export const useStore = create<AppState>((set) => ({
   },
   setTextureUrl: (url) => set({ textureUrl: url }),
   setUserPrompt: (prompt) => set({ userPrompt: prompt }),
+  setIsLoading: (loading) => set({ isLoading: loading }),
 }));
