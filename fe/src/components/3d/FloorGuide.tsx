@@ -6,9 +6,12 @@ import { Edges } from '@react-three/drei';
 
 export default function FloorGuide() {
   const roomSize = useStore((state) => state.roomSize);
+  
+  // 바닥 높이: -height/2, z-fighting 방지를 위해 살짝 위로 띄움
+  const yPos = -roomSize.height / 2 + 0.01;
 
   return (
-    <group position={[0, -1.49, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <group position={[0, yPos, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       {/* 바닥 영역 표시 (반투명) */}
       <mesh>
         <planeGeometry args={[roomSize.width, roomSize.depth]} />

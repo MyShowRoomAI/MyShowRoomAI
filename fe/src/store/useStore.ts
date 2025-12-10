@@ -18,7 +18,7 @@ interface AppState {
   userPrompt: string;
   isLoading: boolean;
   selectedFurnitureId: string | null;
-  roomSize: { width: number; depth: number };
+  roomSize: { width: number; depth: number; height: number };
   isDebugMode: boolean;
   setMode: (mode: Mode) => void;
   setCursorPosition: (position: [number, number, number] | Vector3) => void;
@@ -28,7 +28,7 @@ interface AppState {
   setTextureUrl: (url: string) => void;
   setUserPrompt: (prompt: string) => void;
   setIsLoading: (loading: boolean) => void;
-  setRoomSize: (size: { width: number; depth: number }) => void;
+  setRoomSize: (size: { width: number; depth: number; height: number }) => void;
   setIsDebugMode: (isDebug: boolean) => void;
 }
 
@@ -40,7 +40,7 @@ export const useStore = create<AppState>((set) => ({
   userPrompt: '',
   isLoading: false,
   selectedFurnitureId: null,
-  roomSize: { width: 12, depth: 8 }, // 초기값: 가로 12m, 세로 8m
+  roomSize: { width: 12, depth: 8, height: 3 }, // 초기값: 가로 12m, 세로 8m, 높이 3m
   isDebugMode: true,
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {

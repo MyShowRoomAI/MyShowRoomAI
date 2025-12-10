@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import { useStore } from '@/store/useStore';
 import FurnitureItem from './3d/FurnitureItem';
 import PanoramaSphere from './3d/PanoramaSphere';
-import InvisibleFloor from './3d/InvisibleFloor';
+import InvisibleRoom from './3d/InvisibleRoom';
 import FloorGuide from './3d/FloorGuide';
 
 export default function Scene() {
@@ -34,7 +34,7 @@ export default function Scene() {
           <PanoramaSphere />
         </Suspense>
 
-        <InvisibleFloor />
+        <InvisibleRoom />
 
         {/* Visual Floor Guide - PLACE 모드이거나 Debug 모드일 때 표시 */}
         {(mode === 'PLACE' || isDebugMode) && <FloorGuide />}

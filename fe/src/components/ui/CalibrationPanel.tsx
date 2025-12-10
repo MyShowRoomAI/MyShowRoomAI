@@ -69,6 +69,23 @@ export default function CalibrationPanel() {
               className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
             />
           </div>
+
+          {/* Height Control */}
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Height</span>
+              <span className="font-mono text-blue-300">{roomSize.height}m</span>
+            </div>
+            <input 
+              type="range" 
+              min="2" 
+              max="10" 
+              step="0.1"
+              value={roomSize.height}
+              onChange={(e) => setRoomSize({ ...roomSize, height: parseFloat(e.target.value) })}
+              className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
         </div>
       </div>
     </div>
