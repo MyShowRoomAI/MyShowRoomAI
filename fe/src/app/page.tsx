@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ControlBar from '@/components/ui/ControlBar';
 import ChatInterface from '@/components/ui/ChatInterface';
+import FurnitureSidebar from '@/components/ui/FurnitureSidebar';
 import LandingScreen from '@/components/ui/LandingScreen';
 import LoadingScreen from '@/components/ui/LoadingScreen';
 import { useStore } from '@/store/useStore';
@@ -62,7 +63,7 @@ export default function Home() {
   return (
     <main className="relative w-full h-screen bg-gray-900 overflow-hidden">
       {/* 3D Scene Layer (Always rendered if textureUrl exists) */}
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 text-white">
         <Scene />
       </div>
 
@@ -76,6 +77,7 @@ export default function Home() {
       {/* UI Layer (Foreground) - 로딩이 끝난 후에만 표시 */}
       {!isLoading && (
         <div className="absolute inset-0 z-20 pointer-events-none animate-fade-in">
+          <FurnitureSidebar />
           <ControlBar />
           <ChatInterface />
         </div>
