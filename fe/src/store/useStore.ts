@@ -24,7 +24,7 @@ interface AppState {
   setMode: (mode: Mode) => void;
   setCursorPosition: (position: [number, number, number] | Vector3) => void;
   addFurniture: (position: [number, number, number] | Vector3) => void;
-  updateFurniture: (id: string, changes: Partial<Furniture>) => void;
+  updateFurniture: (id: string, changes: Partial<Omit<Furniture, 'position' | 'rotation'> & { position: [number, number, number] | Vector3, rotation: [number, number, number] | Map<string, any> /* allowing Euler-like objects */ }>) => void;
   setSelectedFurnitureId: (id: string | null) => void;
   setTextureUrl: (url: string) => void;
   setUserPrompt: (prompt: string) => void;
@@ -73,9 +73,38 @@ export const useStore = create<AppState>((set) => ({
     set((state) => ({ furnitures: [...state.furnitures, newFurniture] }));
   },
   updateFurniture: (id, changes) => set((state) => ({
-    furnitures: state.furnitures.map((f) => 
-      f.id === id ? { ...f, ...changes } : f
-    ),
+    furnitures: state.furnitures.map((f) => {
+      if (f.id !== id) return f;
+      
+      const { position: cPos, rotation: cRot, ...restChanges } = changes;
+      let newPosition = f.position;
+      let newRotation = f.rotation;
+
+      if (cPos) {
+        if (Array.isArray(cPos)) {
+          newPosition = cPos;
+        } else if ((cPos as any).isVector3) {
+           const v = cPos as any;
+           newPosition = [v.x, v.y, v.z];
+        }
+      }
+
+      if (cRot) {
+        if (Array.isArray(cRot)) {
+           newRotation = cRot;
+        } else if ((cRot as any).isEuler) {
+           const e = cRot as any;
+           newRotation = [e.x, e.y, e.z];
+        }
+      }
+
+      return { 
+        ...f, 
+        ...restChanges, 
+        position: newPosition, 
+        rotation: newRotation 
+      };
+    }),
   })),
   setSelectedFurnitureId: (id) => set({ selectedFurnitureId: id }),
   setTextureUrl: (url) => set({ textureUrl: url }),

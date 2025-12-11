@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { TransformControls } from '@react-three/drei';
+import { TransformControls, Html } from '@react-three/drei';
 import { ThreeEvent, useThree } from '@react-three/fiber';
-import { Mesh, Euler } from 'three';
+import { Mesh, Group, Vector3, Euler } from 'three';
 
 interface FurnitureItemProps {
   id: string;
@@ -14,35 +14,84 @@ interface FurnitureItemProps {
   onSelect: (e: ThreeEvent<MouseEvent>) => void;
 }
 
+type ManipulationMode = 'translate' | 'rotate';
+
 export default function FurnitureItem({ id, position, rotation, isSelected, onSelect }: FurnitureItemProps) {
   const updateFurniture = useStore((state) => state.updateFurniture);
+  const roomSize = useStore((state) => state.roomSize);
   const meshRef = useRef<Mesh>(null);
-  const controlsRef = useRef<any>(null); // TransformControls 타입 추론이 까다로울 수 있어 any 사용
+  const tooltipRef = useRef<Group>(null);
   const { gl } = useThree();
+  
+  // UX Requirement: 기본 모드는 'translate'
+  const [manipulationMode, setManipulationMode] = useState<ManipulationMode>('translate');
 
-  // 회전 변경 감지 및 업데이트
+  // 키보드 모드 토글 로직
   useEffect(() => {
-    if (controlsRef.current) {
-      const callback = () => {
-        if (meshRef.current) {
-          const newRotation: [number, number, number] = [
-            meshRef.current.rotation.x,
-            meshRef.current.rotation.y,
-            meshRef.current.rotation.z
-          ];
-          // 실시간 업데이트보다는 드래그 종료 시 업데이트가 성능상 유리하지만,
-          // 여기서는 즉각적인 반응을 위해 change 이벤트 활용 가능.
-          // 하지만 TransformControls의 onMouseUp 이벤트를 직접 받기 어려우므로
-          // change 이벤트에서 Store 업데이트 할 경우 빈번한 리렌더링 주의.
-          // 여기서는 'change'이벤트에서 로컬 object만 변하고, 
-          // 실제 저장은 onMouseUp 핸들러(TransformControls)에서 처리하는 것이 일반적임.
-        }
-      };
-
-      controlsRef.current.addEventListener('change', callback);
-      return () => controlsRef.current.removeEventListener('change', callback);
+    if (!isSelected) {
+        // 선택 해제 시 모드를 기본값(translate)으로 리셋 (선택적 UX)
+        // 사용자가 다시 선택했을 때 translate로 시작하는 것이 일반적
+        setManipulationMode('translate');
+        return;
     }
-  }, []);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 대소문자 구분 없이 처리
+      const key = e.key.toLowerCase();
+      if (key === 'r') {
+        setManipulationMode('rotate');
+      } else if (key === 't') {
+        setManipulationMode('translate');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSelected]);
+
+  // 가구 조작 완료 시 Store 업데이트
+  const handleTransformEnd = () => {
+    if (meshRef.current) {
+        const newPos = meshRef.current.position; // Vector3
+        const newRot = meshRef.current.rotation; // Euler
+
+        updateFurniture(id, {
+            position: newPos, // Vector3
+            rotation: [newRot.x, newRot.y, newRot.z], // Euler -> [x, y, z] 변환
+        });
+    }
+  };
+
+  // 실시간 이동 제한 (Boundary Constraint)
+  const handleObjectChange = () => {
+    if (meshRef.current && manipulationMode === 'translate') {
+      const mesh = meshRef.current;
+      
+      // 방의 경계 계산 (가구의 중심 기준)
+      const halfWidth = roomSize.width / 2;
+      const halfDepth = roomSize.depth / 2;
+
+      // 현재 위치
+      const currentPos = mesh.position;
+
+      // 경계 제한 (Clamp)
+      // 가구 크기(1x1)를 고려하지 않고 중심점 기준으로 단순 제한하거나,
+      // 정밀하게 하려면 가구의 BoundingBox를 고려해야 함.
+      // 여기서는 중심점 기준으로 -half ~ +half 범위로 제한.
+      const clampedX = Math.max(-halfWidth, Math.min(halfWidth, currentPos.x));
+      const clampedZ = Math.max(-halfDepth, Math.min(halfDepth, currentPos.z));
+
+      // 위치 보정 적용
+      mesh.position.set(clampedX, currentPos.y, clampedZ);
+    }
+    
+    // 툴팁 위치 동기화 (회전 영향 받지 않도록 위치만 복사)
+    if (meshRef.current && tooltipRef.current) {
+      tooltipRef.current.position.copy(meshRef.current.position);
+    }
+  };
 
   return (
     <>
@@ -56,26 +105,83 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
       >
         <boxGeometry args={[1, 1, 1]} />
         <meshStandardMaterial color={isSelected ? "orange" : "hotpink"} />
-      </mesh>
+    </mesh>
 
-      {isSelected && (
-        <TransformControls
-          object={meshRef as React.MutableRefObject<Mesh>}
-          mode="rotate"
-          // 드래그 시작 시 OrbitControls 비활성화
-          onMouseDown={() => {
-            const orbitControls = (gl.domElement.parentNode as any)?.orbitControls; // OrbitControls 접근 방식은 환경에 따라 다를 수 있음
-            // R3F에서는 makeDefault로 설정된 OrbitControls를 자동으로 제어해줌 (드래그시 Orbit 멈춤)
-          }}
-          // 드래그 종료 시 회전값 저장
-          onMouseUp={() => {
-            if (meshRef.current) {
-              const r = meshRef.current.rotation;
-              updateFurniture(id, { rotation: [r.x, r.y, r.z] });
+    {/* 툴팁: 회전 영향 없이 위치만 따라다니도록 별도 그룹 사용 */}
+    {isSelected && (
+      <group ref={tooltipRef} position={position}>
+        <Html position={[0, 1.5, 0]} center>
+          <div className="whitespace-nowrap bg-black/80 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/20 shadow-xl flex flex-col items-center gap-1">
+            <div className="text-xs text-gray-300 uppercase tracking-wider">Mode</div>
+            <div className="text-base font-bold text-blue-400">
+              {manipulationMode === 'translate' ? '이동 (Translate)' : '회전 (Rotate)'}
+            </div>
+            <div className="h-px w-full bg-white/20 my-1" />
+            <div className="flex gap-2 text-xs">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setManipulationMode('rotate');
+                }}
+                className={`kb-button ${manipulationMode === 'rotate' ? 'kb-button-active' : 'kb-button-inactive'}`}
+              >
+                <span className="kb-key">[R]</span> 회전
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setManipulationMode('translate');
+                }}
+                className={`kb-button ${manipulationMode === 'translate' ? 'kb-button-active' : 'kb-button-inactive'}`}
+              >
+                <span className="kb-key">[T]</span> 이동
+              </button>
+            </div>
+          </div>
+          <style>{`
+            .kb-key {
+              background: rgba(255,255,255,0.2);
+              padding: 1px 4px;
+              border-radius: 4px;
+              margin-right: 2px;
             }
-          }}
-        />
-      )}
+            .kb-button {
+              padding: 4px 8px;
+              border-radius: 6px;
+              border: 1px solid rgba(255,255,255,0.2);
+              cursor: pointer;
+              transition: all 0.2s ease;
+              background: rgba(255,255,255,0.05);
+            }
+            .kb-button:hover {
+              background: rgba(255,255,255,0.15);
+              border-color: rgba(255,255,255,0.4);
+              transform: translateY(-1px);
+            }
+            .kb-button-active {
+              color: white;
+              font-weight: bold;
+              background: rgba(59, 130, 246, 0.3);
+              border-color: rgba(59, 130, 246, 0.6);
+            }
+            .kb-button-inactive {
+              color: rgb(156, 163, 175);
+            }
+          `}</style>
+        </Html>
+      </group>
+    )}
+
+    {isSelected && (
+      <TransformControls
+        object={meshRef as React.MutableRefObject<Mesh>}
+        mode={manipulationMode}
+        // 드래그 종료 시 위치/회전값 저장
+        onMouseUp={handleTransformEnd}
+        // 이동 중 경계 제한 및 툴팁 위치 동기화
+        onObjectChange={handleObjectChange}
+      />
+    )}
     </>
   );
 }
