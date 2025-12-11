@@ -21,38 +21,18 @@ export default function Home() {
   // 로딩 진행률 (0~100)
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // 로딩 시뮬레이션 (추후 실제 백엔드 연동 시 교체)
+  // 텍스처가 로드되면 로딩 완료
   useEffect(() => {
-    if (isLoading && textureUrl) {
-      setLoadingProgress(0);
-      
-      const simulateAsyncOperations = async () => {
-        // Step 1: 분석 시작 (0 ~ 30%)
-        await new Promise(r => setTimeout(r, 1000));
-        setLoadingProgress(30);
-        
-        // Step 2: 스타일 매칭 (30 ~ 60%)
-        await new Promise(r => setTimeout(r, 1500));
-        setLoadingProgress(60);
-        
-        // Step 3: 가구 배치 시뮬레이션 (60 ~ 90%)
-        await new Promise(r => setTimeout(r, 1500));
-        setLoadingProgress(90);
-        
-        // Step 4: 렌더링 준비 및 3D Scene 초기화 대기 (90 ~ 100%)
-        // 여기서 실제 리소스 로딩이 완료되기를 기다리는 의미로 시간을 둠
-        await new Promise(r => setTimeout(r, 1000));
+    if (textureUrl && isLoading) {
+      // 약간의 지연 후 로딩 완료
+      setTimeout(() => {
         setLoadingProgress(100);
-        
-        // 완료 후 잠시 대기했다가 로딩 화면 제거
         setTimeout(() => {
-            setIsLoading(false);
-        }, 500);
-      };
-
-      simulateAsyncOperations();
+          setIsLoading(false);
+        }, 300);
+      }, 500);
     }
-  }, [isLoading, textureUrl, setIsLoading]);
+  }, [textureUrl, isLoading, setIsLoading]);
 
   // Case 1: 이미지가 없으면 랜딩 페이지
   if (!textureUrl) {

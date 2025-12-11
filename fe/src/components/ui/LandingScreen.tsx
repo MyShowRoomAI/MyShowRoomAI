@@ -11,13 +11,11 @@ export default function LandingScreen() {
   const setOriginalImageFile = useStore((state) => state.setOriginalImageFile);
 
   const [hasImage, setHasImage] = useState(false);
-  const [hasText, setHasText] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   // 로컬 isLoading 제거, 전역 상태 사용
 
   // 로컬 State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState("");
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -51,24 +49,17 @@ export default function LandingScreen() {
     }
   };
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const text = e.target.value;
-    setPrompt(text);
-    setHasText(text.trim().length > 0);
-  };
-
   const handleEnterShowroom = () => {
     if (!previewUrl) return;
     
     // 1. 로딩 시작
     setIsLoading(true);
     
-    // 2. 데이터 세팅 (약간의 지연 없이 바로 세팅해도 무방, 순서는 로딩 먼저)
+    // 2. 파노라마 이미지 적용
     setTextureUrl(previewUrl);
-    setUserPrompt(prompt);
   };
 
-  const isButtonActive = hasImage && hasText;
+  const isButtonActive = hasImage;
 
   return (
     <div className="min-h-screen w-full overflow-hidden bg-white relative">
@@ -165,18 +156,6 @@ export default function LandingScreen() {
             </div>
           </div>
 
-          {/* 텍스트 입력 영역 */}
-          <div className="relative">
-            <textarea
-              onChange={handleTextChange}
-              placeholder="What style would you like? Example: Warm Scandinavian design, budget $10,000"
-              className="w-full h-32 p-6 rounded-2xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none resize-none font-medium text-gray-800 placeholder-gray-400 bg-white/80 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 focus:shadow-lg focus:shadow-blue-200/50"
-            />
-            <div className="absolute bottom-4 right-4 text-xs text-gray-400">
-              AI analyzes your preferences
-            </div>
-          </div>
-
           {/* 메인 버튼 */}
           <div className="pt-4">
             <button
@@ -195,7 +174,7 @@ export default function LandingScreen() {
             </button>
             {!isButtonActive && (
               <p className="text-center text-sm text-gray-500 mt-3">
-                Please upload a photo and describe your style
+                Please upload a 360° room photo
               </p>
             )}
           </div>
