@@ -8,6 +8,7 @@ export default function LandingScreen() {
   const setTextureUrl = useStore((state) => state.setTextureUrl);
   const setUserPrompt = useStore((state) => state.setUserPrompt);
   const setIsLoading = useStore((state) => state.setIsLoading);
+  const setOriginalImageFile = useStore((state) => state.setOriginalImageFile);
 
   const [hasImage, setHasImage] = useState(false);
   const [hasText, setHasText] = useState(false);
@@ -32,6 +33,8 @@ export default function LandingScreen() {
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl(objectUrl);
     setHasImage(true);
+    // Store에 원본 파일 저장 (API 호출 시 사용)
+    setOriginalImageFile(file);
   };
 
   const handleDrop = (e: React.DragEvent) => {

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { fetchAiDesignResponse } from '@/api/mockApi';
+import { fetchAiDesignResponse } from '@/api/apiClient';
 
 interface Message {
   id: number;
@@ -15,12 +15,20 @@ export default function ChatInterface() {
   const messages = useStore((state) => state.messages);
   const addMessage = useStore((state) => state.addMessage);
   const setFurnitureList = useStore((state) => state.setFurnitureList);
+  const isLoading = useStore((state) => state.isLoading);
+  const setIsLoading = useStore((state) => state.setIsLoading);
+  const originalImageFile = useStore((state) => state.originalImageFile);
   
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
+
+    // 유효성 검사: 원본 이미지 파일 확인
+    if (!originalImageFile) {
+      addMessage({ sender: 'gemini', text: '원본 이미지 파일이 없습니다. 먼저 이미지를 업로드해 주세요.' });
+      return;
+    }
 
     // 1. 사용자 메시지 추가
     const userMsg = inputValue;
@@ -29,8 +37,8 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
-      // 2. API 호출
-      const response = await fetchAiDesignResponse(userMsg);
+      // 2. 실제 API 호출
+      const response = await fetchAiDesignResponse(userMsg, originalImageFile);
 
       // 3. AI 응답 처리
       addMessage({ sender: 'gemini', text: response.ai_message });
@@ -40,7 +48,7 @@ export default function ChatInterface() {
       
     } catch (error) {
       console.error("API Error:", error);
-      addMessage({ sender: 'gemini', text: "Sorry, I couldn't process your request." });
+      addMessage({ sender: 'gemini', text: "API 호출 중 오류가 발생했습니다. URL과 네트워크 연결을 확인해 주세요." });
     } finally {
       setIsLoading(false);
     }

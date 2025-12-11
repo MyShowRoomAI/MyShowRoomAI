@@ -37,6 +37,11 @@ interface AppState {
   setFurnitureList: (list: FurnitureItem[]) => void;
   messages: { id: number; sender: 'user' | 'gemini'; text: string }[];
   addMessage: (msg: { sender: 'user' | 'gemini'; text: string }) => void;
+  // Phase A: API Environment
+  apiBaseUrl: string;
+  originalImageFile: File | null;
+  setApiBaseUrl: (url: string) => void;
+  setOriginalImageFile: (file: File | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -53,6 +58,10 @@ export const useStore = create<AppState>((set) => ({
   // Phase 8 Initial State
   currentFurnitureList: [], // 초기값 빈 배열로 변경 (채팅 요청 전까지 숨김)
   messages: [],
+  
+  // Phase A Initial State
+  apiBaseUrl: '',
+  originalImageFile: null,
 
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
@@ -120,4 +129,8 @@ export const useStore = create<AppState>((set) => ({
   addMessage: (msg) => set((state) => ({
     messages: [...state.messages, { id: Date.now(), ...msg }]
   })),
+  
+  // Phase A Actions
+  setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
+  setOriginalImageFile: (file) => set({ originalImageFile: file }),
 }));
