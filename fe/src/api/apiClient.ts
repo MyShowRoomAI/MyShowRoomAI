@@ -1,4 +1,5 @@
 import { FurnitureItem } from '@/data/mockData';
+import { MOCK_FLOOR_BOUNDARY } from '@/data/mockFloorData';
 import { API_CONFIG } from '@/config/api';
 import { fetchAiDesignResponse as fetchMockResponse } from './mockApi';
 
@@ -126,13 +127,7 @@ export const analyzeRoomStructure = async (
     await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기
     return {
       status: "success",
-      floor_boundary: [
-        { x: 100, y: 800 },
-        { x: 300, y: 750 },
-        { x: 500, y: 720 },
-        { x: 700, y: 750 },
-        { x: 900, y: 800 },
-      ]
+      floor_boundary: MOCK_FLOOR_BOUNDARY,
     };
   }
 
