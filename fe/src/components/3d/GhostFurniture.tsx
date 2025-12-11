@@ -14,8 +14,12 @@ export default function GhostFurniture({ position, isColliding }: GhostFurniture
   const selectedRecommendation = useStore((state) => state.selectedRecommendation);
   const modelUrl = selectedRecommendation?.model_url;
 
-  // GLTF 로드
-  const { scene } = useGLTF(modelUrl || '', true);
+  // GLTF 로드 - Ngrok URL일 때만 Warning Bypass Header 추가
+  const { scene } = useGLTF(modelUrl || '', true, true, (loader) => {
+    if (modelUrl?.includes('ngrok')) {
+      loader.setRequestHeader({ 'ngrok-skip-browser-warning': 'true' });
+    }
+  });
 
   // Scene 복제 및 정규화 (Auto-Scale)
   const clonedScene = useMemo(() => {

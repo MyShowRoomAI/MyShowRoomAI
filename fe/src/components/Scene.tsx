@@ -17,7 +17,7 @@ export default function Scene() {
   const setMode = useStore((state) => state.setMode);
   const roomSize = useStore((state) => state.roomSize);
   const isDebugMode = useStore((state) => state.isDebugMode);
-
+  
   const handleMissedClick = () => {
     setSelectedFurnitureId(null);
   };
@@ -48,7 +48,8 @@ export default function Scene() {
         <ambientLight intensity={1.5} />
         
         <Suspense fallback={null}>
-          <PanoramaSphere />
+          {/* textureUrl이 있을 때만 PanoramaSphere 렌더링하여 Hook 에러 방지 */}
+          {useStore.getState().textureUrl && <PanoramaSphere />}
           <FloorBoundaryLine />
         </Suspense>
 

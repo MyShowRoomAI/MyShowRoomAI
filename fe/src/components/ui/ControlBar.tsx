@@ -53,6 +53,7 @@ export default function ControlBar() {
         >
           <Trash2 size={20} />
         </button>
+
       </div>
 
       {/* Mode Indicator */}

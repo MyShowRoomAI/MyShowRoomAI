@@ -26,7 +26,12 @@ import { normalizeModel } from '@/utils/modelHelper';
 // ...
 
 function ModelLoader({ modelUrl }: ModelLoaderProps) {
-  const { scene } = useGLTF(modelUrl);
+  // Ngrok URL일 때만 Warning Bypass Header 추가
+  const { scene } = useGLTF(modelUrl, true, true, (loader) => {
+    if (modelUrl.includes('ngrok')) {
+      loader.setRequestHeader({ 'ngrok-skip-browser-warning': 'true' });
+    }
+  });
   // Clone and Normalize
   const clone = React.useMemo(() => {
     const c = scene.clone(true);
