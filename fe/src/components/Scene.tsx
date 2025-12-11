@@ -8,6 +8,7 @@ import FurnitureItem from './3d/FurnitureItem';
 import PanoramaSphere from './3d/PanoramaSphere';
 import InvisibleRoom from './3d/InvisibleRoom';
 import FloorGuide from './3d/FloorGuide';
+import FloorBoundaryLine from './3d/FloorBoundaryLine';
 
 export default function Scene() {
   const furnitures = useStore((state) => state.furnitures);
@@ -48,6 +49,7 @@ export default function Scene() {
         
         <Suspense fallback={null}>
           <PanoramaSphere />
+          <FloorBoundaryLine />
         </Suspense>
 
         <InvisibleRoom />

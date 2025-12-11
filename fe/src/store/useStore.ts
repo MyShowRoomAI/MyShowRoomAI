@@ -42,6 +42,11 @@ interface AppState {
   originalImageFile: File | null;
   setApiBaseUrl: (url: string) => void;
   setOriginalImageFile: (file: File | null) => void;
+  // Floor Boundary
+  floorBoundary: Array<{ x: number; y: number }> | null;
+  setFloorBoundary: (boundary: Array<{ x: number; y: number }> | null) => void;
+  imageSize: { width: number; height: number } | null;
+  setImageSize: (size: { width: number; height: number } | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -62,6 +67,8 @@ export const useStore = create<AppState>((set) => ({
   // Phase A Initial State
   apiBaseUrl: '',
   originalImageFile: null,
+  floorBoundary: null,
+  imageSize: null,
 
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
@@ -133,4 +140,6 @@ export const useStore = create<AppState>((set) => ({
   // Phase A Actions
   setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
   setOriginalImageFile: (file) => set({ originalImageFile: file }),
+  setFloorBoundary: (boundary) => set({ floorBoundary: boundary }),
+  setImageSize: (size) => set({ imageSize: size }),
 }));

@@ -3,12 +3,16 @@
 import React, { useState } from 'react';
 import { Cloud, Upload, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { analyzeRoomStructure } from '@/api/apiClient';
 
 export default function LandingScreen() {
   const setTextureUrl = useStore((state) => state.setTextureUrl);
   const setUserPrompt = useStore((state) => state.setUserPrompt);
   const setIsLoading = useStore((state) => state.setIsLoading);
   const setOriginalImageFile = useStore((state) => state.setOriginalImageFile);
+  const originalImageFile = useStore((state) => state.originalImageFile);
+  const setFloorBoundary = useStore((state) => state.setFloorBoundary);
+  const setImageSize = useStore((state) => state.setImageSize);
 
   const [hasImage, setHasImage] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -33,6 +37,14 @@ export default function LandingScreen() {
     setHasImage(true);
     // Store에 원본 파일 저장 (API 호출 시 사용)
     setOriginalImageFile(file);
+    
+    // 이미지 크기 감지
+    const img = new Image();
+    img.onload = () => {
+      setImageSize({ width: img.width, height: img.height });
+      console.log('이미지 크기:', img.width, 'x', img.height);
+    };
+    img.src = objectUrl;
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -49,14 +61,28 @@ export default function LandingScreen() {
     }
   };
 
-  const handleEnterShowroom = () => {
-    if (!previewUrl) return;
+  const handleEnterShowroom = async () => {
+    if (!previewUrl || !originalImageFile) return;
     
     // 1. 로딩 시작
     setIsLoading(true);
     
-    // 2. 파노라마 이미지 적용
-    setTextureUrl(previewUrl);
+    try {
+      // 2. 방 구조 분석 API 호출
+      const result = await analyzeRoomStructure(originalImageFile);
+      console.log('바닥 경계 좌표:', result.floor_boundary);
+      
+      // 3. 바닥 경계 데이터 저장
+      setFloorBoundary(result.floor_boundary);
+      
+      // 4. 파노라마 이미지 적용
+      setTextureUrl(previewUrl);
+      
+    } catch (error) {
+      console.error('방 분석 실패:', error);
+      alert('방 구조 분석 중 오류가 발생했습니다.');
+      setIsLoading(false);
+    }
   };
 
   const isButtonActive = hasImage;

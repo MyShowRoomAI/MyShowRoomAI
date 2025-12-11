@@ -94,3 +94,58 @@ export const fetchAiDesignResponse = async (
     throw error;
   }
 };
+
+/**
+ * 방 구조 분석 API 호출
+ * @param imageFile 원본 이미지 파일
+ * @returns 바닥 경계 좌표
+ */
+export const analyzeRoomStructure = async (
+  imageFile: File
+): Promise<{ status: string; floor_boundary: Array<{ x: number; y: number }> }> => {
+  // Mock API 사용
+  if (API_CONFIG.USE_MOCK_API) {
+    console.log('🔄 Using Mock API for room analysis');
+    await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기
+    return {
+      status: "success",
+      floor_boundary: [
+        { x: 100, y: 800 },
+        { x: 300, y: 750 },
+        { x: 500, y: 720 },
+        { x: 700, y: 750 },
+        { x: 900, y: 800 },
+      ]
+    };
+  }
+
+  // 실제 API 호출
+  const formData = new FormData();
+  formData.append('file', imageFile);
+
+  try {
+    console.log('API 요청 시작: /analyze-image');
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/analyze-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log('API 응답 상태:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API 에러 응답:', errorText);
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('방 구조 분석 완료:', data);
+
+    return data;
+  } catch (error) {
+    console.error('analyzeRoomStructure Error:', error);
+    throw error;
+  }
+};
+
