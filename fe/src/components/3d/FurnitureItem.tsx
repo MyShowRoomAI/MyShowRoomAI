@@ -1,0 +1,301 @@
+'use client';
+
+import React, { useRef, useEffect, useState } from 'react';
+import { useStore } from '@/store/useStore';
+import { TransformControls, Html, useGLTF } from '@react-three/drei';
+import { ThreeEvent, useThree } from '@react-three/fiber';
+import { Mesh, Group, Box3, Vector3 } from 'three';
+import { checkCollision } from '@/utils/collision';
+import { normalizeModel } from '@/utils/modelHelper';
+
+interface FurnitureItemProps {
+  id: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  isSelected: boolean;
+  onSelect: (e: ThreeEvent<MouseEvent>) => void;
+}
+
+type ManipulationMode = 'translate' | 'rotate';
+
+interface ModelLoaderProps {
+  modelUrl: string;
+  onLoaded?: (yOffset: number) => void;
+}
+
+function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
+  // Ngrok URL일 때만 Warning Bypass Header 추가
+  const { scene } = useGLTF(modelUrl, true, true, (loader) => {
+    if (modelUrl.includes('ngrok')) {
+      loader.setRequestHeader({ 'ngrok-skip-browser-warning': 'true' });
+    }
+  });
+
+  // Clone and Normalize
+  const { clone, yOffset } = React.useMemo(() => {
+    const c = scene.clone(true);
+    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Centered)
+    
+    // Calculate Height Offset
+    const box = new Box3().setFromObject(c);
+    const size = new Vector3();
+    box.getSize(size);
+    return { clone: c, yOffset: size.y / 2 };
+  }, [scene]);
+
+  // Notify parent of the offset required to ground the object
+  React.useEffect(() => {
+    if (onLoaded) {
+      onLoaded(yOffset);
+    }
+  }, [yOffset, onLoaded]);
+
+  return (
+    <primitive object={clone} />
+  );
+}
+
+
+export default function FurnitureItem({ id, position, rotation, isSelected, onSelect }: FurnitureItemProps) {
+  const updateFurniture = useStore((state) => state.updateFurniture);
+  const furnitures = useStore((state) => state.furnitures);
+  const roomSize = useStore((state) => state.roomSize);
+  const groupRef = useRef<Group>(null);
+  const tooltipRef = useRef<Group>(null);
+  
+  // Find the furniture item to get modelUrl and scale
+  const item = furnitures.find(f => f.id === id);
+  const modelUrl = item?.modelUrl || 'box';
+  const scale = item?.scale || [1, 1, 1]; // 기본값 [1, 1, 1]
+
+  // UX Requirement: 기본 모드는 'translate'
+  
+  // UX Requirement: 기본 모드는 'translate'
+  const [manipulationMode, setManipulationMode] = useState<ManipulationMode>('translate');
+  
+  // 충돌 감지 상태
+  const [isColliding, setIsColliding] = useState(false);
+  // 직전 유효 위치 저장 (충돌 시 복원용)
+  const lastValidPosition = useRef<[number, number, number]>(position);
+
+  // 키보드 모드 토글 로직
+  useEffect(() => {
+    if (!isSelected) {
+        // 선택 해제 시 모드를 기본값(translate)으로 리셋 (선택적 UX)
+        // 리액트 린트 에러 방지를 위해 비동기 처리
+        const timer = setTimeout(() => setManipulationMode('translate'), 0);
+        return () => clearTimeout(timer);
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 대소문자 구분 없이 처리
+      const key = e.key.toLowerCase();
+      if (key === 'r') {
+        setManipulationMode('rotate');
+      } else if (key === 't') {
+        setManipulationMode('translate');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSelected]);
+
+  // 가구 조작 완료 시 Store 업데이트
+  const handleTransformEnd = () => {
+    // 충돌 상태에서 조작 종료 시 저장 무시 (이미 직전 유효 위치로 복원됨)
+    if (isColliding) {
+      console.warn('충돌 상태로 조작 종료: 저장 무시');
+      return;
+    }
+    
+    if (groupRef.current) {
+        const newPos = groupRef.current.position; // Vector3
+        const newRot = groupRef.current.rotation; // Euler
+
+        updateFurniture(id, {
+            position: newPos, // Vector3
+            rotation: [newRot.x, newRot.y, newRot.z], // Euler -> [x, y, z] 변환
+        });
+    }
+  };
+
+  // 실시간 이동 제한 (Boundary Constraint)
+  const handleObjectChange = () => {
+    if (groupRef.current && manipulationMode === 'translate') {
+      const group = groupRef.current;
+      
+      // 방의 경계 계산 (가구의 중심 기준)
+      const halfWidth = roomSize.width / 2;
+      const halfDepth = roomSize.depth / 2;
+
+      // 현재 위치
+      const currentPos = group.position;
+
+      // 경계 제한 (Clamp)
+      // 가구 크기(1x1)를 고려하지 않고 중심점 기준으로 단순 제한하거나,
+      // 정밀하게 하려면 가구의 BoundingBox를 고려해야 함.
+      // 여기서는 중심점 기준으로 -half ~ +half 범위로 제한.
+      const clampedX = Math.max(-halfWidth, Math.min(halfWidth, currentPos.x));
+      const clampedZ = Math.max(-halfDepth, Math.min(halfDepth, currentPos.z));
+
+      // 위치 보정 적용
+      group.position.set(clampedX, currentPos.y, clampedZ);
+      
+      // 충돌 감지 (자기 자신 제외)
+      const potentialPos: [number, number, number] = [group.position.x, group.position.y, group.position.z];
+      const otherFurnitures = furnitures.filter(f => f.id !== id);
+      
+      const collision = checkCollision(
+        potentialPos,
+        { width: 1, depth: 1 }, // 현재 가구 크기
+        otherFurnitures
+      );
+      
+      if (collision) {
+        // 충돌 시: 직전 유효 위치로 복원
+        setIsColliding(true);
+        group.position.set(...lastValidPosition.current);
+      } else {
+        // 비충돌 시: 현재 위치를 유효 위치로 저장
+        setIsColliding(false);
+        lastValidPosition.current = potentialPos;
+      }
+    }
+    
+    // 툴팁 위치 동기화 (회전 영향 받지 않도록 위치만 복사)
+    if (groupRef.current && tooltipRef.current) {
+      tooltipRef.current.position.copy(groupRef.current.position);
+    }
+  };
+
+  return (
+    <>
+      <group
+        ref={groupRef}
+        position={position}
+        rotation={rotation}
+        onClick={onSelect}
+        // castShadow // Group does not cast shadow directly usually, but children do
+        // receiveShadow
+      >
+        {modelUrl === 'box' ? (
+           <mesh castShadow receiveShadow>
+             <boxGeometry args={[1, 1, 1]} />
+             <meshStandardMaterial 
+               color={
+                 isColliding && isSelected ? "red" : 
+                 isSelected ? "orange" : 
+                 "hotpink"
+               } 
+             />
+           </mesh>
+        ) : (
+           <React.Suspense fallback={<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="gray" wireframe /></mesh>}>
+             <group>
+               <ModelLoader 
+                 modelUrl={modelUrl} 
+                 onLoaded={(yOffset) => {
+                   // 초기 배치(바닥 Y=0)인 경우에만 오프셋 적용하여 위로 올림
+                   // 이미 저장된 위치라면(0이 아니면) 건너뜀
+                   if (Math.abs(position[1]) < 0.001) {
+                      updateFurniture(id, {
+                        position: [position[0], position[1] + yOffset, position[2]]
+                      });
+                   }
+                 }}
+               />
+               {/* Selection Highlight for Model - Scale에 맞춰 조정 */}
+               {isSelected && (
+                  <mesh>
+                    {/* 모델의 BoundingBox를 정확히 알 수 없으므로 대략적인 스케일 기반 박스 표시 */}
+                    {/* 실제로는 ModelLoader 내부에서 BoundingBox를 계산해서 넘겨줘야 정확함 */}
+                    <boxGeometry args={[1.05, 1.05, 1.05]} /> 
+                    <meshBasicMaterial color={isColliding ? "red" : "orange"} wireframe />
+                  </mesh>
+               )}
+             </group>
+           </React.Suspense>
+        )}
+    </group>
+
+    {/* 툴팁: 회전 영향 없이 위치만 따라다니도록 별도 그룹 사용 */}
+    {isSelected && (
+      <group ref={tooltipRef} position={position}>
+        <Html position={[0, 1.5, 0]} center>
+          <div className="whitespace-nowrap bg-black/80 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/20 shadow-xl flex flex-col items-center gap-1">
+            <div className="text-xs text-gray-300 uppercase tracking-wider">Mode</div>
+            <div className="text-base font-bold text-blue-400">
+              {manipulationMode === 'translate' ? '이동 (Translate)' : '회전 (Rotate)'}
+            </div>
+            <div className="h-px w-full bg-white/20 my-1" />
+            <div className="flex gap-2 text-xs">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setManipulationMode('rotate');
+                }}
+                className={`kb-button ${manipulationMode === 'rotate' ? 'kb-button-active' : 'kb-button-inactive'}`}
+              >
+                <span className="kb-key">[R]</span> 회전
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setManipulationMode('translate');
+                }}
+                className={`kb-button ${manipulationMode === 'translate' ? 'kb-button-active' : 'kb-button-inactive'}`}
+              >
+                <span className="kb-key">[T]</span> 이동
+              </button>
+            </div>
+          </div>
+          <style>{`
+            .kb-key {
+              background: rgba(255,255,255,0.2);
+              padding: 1px 4px;
+              border-radius: 4px;
+              margin-right: 2px;
+            }
+            .kb-button {
+              padding: 4px 8px;
+              border-radius: 6px;
+              border: 1px solid rgba(255,255,255,0.2);
+              cursor: pointer;
+              transition: all 0.2s ease;
+              background: rgba(255,255,255,0.05);
+            }
+            .kb-button:hover {
+              background: rgba(255,255,255,0.15);
+              border-color: rgba(255,255,255,0.4);
+              transform: translateY(-1px);
+            }
+            .kb-button-active {
+              color: white;
+              font-weight: bold;
+              background: rgba(59, 130, 246, 0.3);
+              border-color: rgba(59, 130, 246, 0.6);
+            }
+            .kb-button-inactive {
+              color: rgb(156, 163, 175);
+            }
+          `}</style>
+        </Html>
+      </group>
+    )}
+
+    {isSelected && (
+      <TransformControls
+        object={groupRef as React.MutableRefObject<Group>}
+        mode={manipulationMode}
+        // 드래그 종료 시 위치/회전값 저장
+        onMouseUp={handleTransformEnd}
+        // 이동 중 경계 제한 및 툴팁 위치 동기화
+        onObjectChange={handleObjectChange}
+      />
+    )}
+    </>
+  );
+}
