@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore';
 import { TransformControls, Html } from '@react-three/drei';
 import { ThreeEvent, useThree } from '@react-three/fiber';
 import { Mesh, Group, Vector3, Euler } from 'three';
+import { checkCollision } from '@/utils/collision';
 
 interface FurnitureItemProps {
   id: string;
@@ -18,6 +19,7 @@ type ManipulationMode = 'translate' | 'rotate';
 
 export default function FurnitureItem({ id, position, rotation, isSelected, onSelect }: FurnitureItemProps) {
   const updateFurniture = useStore((state) => state.updateFurniture);
+  const furnitures = useStore((state) => state.furnitures);
   const roomSize = useStore((state) => state.roomSize);
   const meshRef = useRef<Mesh>(null);
   const tooltipRef = useRef<Group>(null);
@@ -25,6 +27,11 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
   
   // UX Requirement: 기본 모드는 'translate'
   const [manipulationMode, setManipulationMode] = useState<ManipulationMode>('translate');
+  
+  // 충돌 감지 상태
+  const [isColliding, setIsColliding] = useState(false);
+  // 직전 유효 위치 저장 (충돌 시 복원용)
+  const lastValidPosition = useRef<[number, number, number]>(position);
 
   // 키보드 모드 토글 로직
   useEffect(() => {
@@ -53,6 +60,12 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
 
   // 가구 조작 완료 시 Store 업데이트
   const handleTransformEnd = () => {
+    // 충돌 상태에서 조작 종료 시 저장 무시 (이미 직전 유효 위치로 복원됨)
+    if (isColliding) {
+      console.warn('충돌 상태로 조작 종료: 저장 무시');
+      return;
+    }
+    
     if (meshRef.current) {
         const newPos = meshRef.current.position; // Vector3
         const newRot = meshRef.current.rotation; // Euler
@@ -85,6 +98,26 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
 
       // 위치 보정 적용
       mesh.position.set(clampedX, currentPos.y, clampedZ);
+      
+      // 충돌 감지 (자기 자신 제외)
+      const potentialPos: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
+      const otherFurnitures = furnitures.filter(f => f.id !== id);
+      
+      const collision = checkCollision(
+        potentialPos,
+        { width: 1, depth: 1 }, // 현재 가구 크기
+        otherFurnitures
+      );
+      
+      if (collision) {
+        // 충돌 시: 직전 유효 위치로 복원
+        setIsColliding(true);
+        mesh.position.set(...lastValidPosition.current);
+      } else {
+        // 비충돌 시: 현재 위치를 유효 위치로 저장
+        setIsColliding(false);
+        lastValidPosition.current = potentialPos;
+      }
     }
     
     // 툴팁 위치 동기화 (회전 영향 받지 않도록 위치만 복사)
@@ -104,7 +137,13 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
         receiveShadow
       >
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={isSelected ? "orange" : "hotpink"} />
+        <meshStandardMaterial 
+          color={
+            isColliding && isSelected ? "red" : 
+            isSelected ? "orange" : 
+            "hotpink"
+          } 
+        />
     </mesh>
 
     {/* 툴팁: 회전 영향 없이 위치만 따라다니도록 별도 그룹 사용 */}

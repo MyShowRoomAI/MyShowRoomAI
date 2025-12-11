@@ -4,6 +4,7 @@ import { ThreeEvent } from '@react-three/fiber';
 import { useStore } from '@/store/useStore';
 import { useRef, useState } from 'react';
 import { Mesh, Vector3, BackSide } from 'three';
+import { checkCollision } from '@/utils/collision';
 
 export default function InvisibleRoom() {
   const mode = useStore((state) => state.mode);
@@ -11,12 +12,15 @@ export default function InvisibleRoom() {
   const cursorPosition = useStore((state) => state.cursorPosition);
   const addFurniture = useStore((state) => state.addFurniture);
   const setSelectedFurnitureId = useStore((state) => state.setSelectedFurnitureId);
+  const furnitures = useStore((state) => state.furnitures);
   const roomSize = useStore((state) => state.roomSize);
   const isDebugMode = useStore((state) => state.isDebugMode);
   
   const ghostRef = useRef<Mesh>(null);
   // 드래그 감지를 위한 포인터 다운 위치 저장
   const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  // 충돌 감지 상태
+  const [isColliding, setIsColliding] = useState(false);
 
   // 방의 바닥 높이 계산
   const floorY = -roomSize.height / 2;
@@ -35,6 +39,16 @@ export default function InvisibleRoom() {
     // Raycasting된 포인트를 바닥으로 투영하여 커서 위치 업데이트
     const projectedPoint = projectToFloor(e.point);
     setCursorPosition(projectedPoint);
+    
+    // PLACE 모드일 때만 충돌 감지
+    if (mode === 'PLACE') {
+      const collision = checkCollision(
+        [projectedPoint.x, projectedPoint.y, projectedPoint.z],
+        { width: 1, depth: 1 }, // Ghost 크기
+        furnitures
+      );
+      setIsColliding(collision);
+    }
   };
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
@@ -57,7 +71,13 @@ export default function InvisibleRoom() {
     }
     
     if (mode === 'PLACE') {
-      // PLACE 모드: 가구 배치
+      // PLACE 모드: 가구 배치 (충돌 시 차단)
+      if (isColliding) {
+        console.warn('충돌 감지: 가구를 배치할 수 없습니다.');
+        pointerDownPos.current = null;
+        return;
+      }
+      
       const projectedPoint = projectToFloor(e.point);
       addFurniture(projectedPoint);
     } else {
@@ -91,7 +111,11 @@ export default function InvisibleRoom() {
       {mode === 'PLACE' && (
         <mesh position={cursorPosition} ref={ghostRef}>
           <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial color="cyan" transparent opacity={0.5} />
+          <meshStandardMaterial 
+            color={isColliding ? "red" : "cyan"} 
+            transparent 
+            opacity={0.5} 
+          />
         </mesh>
       )}
     </>

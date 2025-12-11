@@ -9,6 +9,7 @@ interface Furniture {
   position: [number, number, number];
   rotation: [number, number, number];
   modelUrl: string;
+  size: { width: number; depth: number };
 }
 
 interface AppState {
@@ -69,6 +70,7 @@ export const useStore = create<AppState>((set) => ({
       position: pos as [number, number, number],
       rotation: [0, 0, 0],
       modelUrl: 'box', // Mock data
+      size: { width: 1, depth: 1 }, // 기본 크기 (1m x 1m)
     };
     set((state) => ({ furnitures: [...state.furnitures, newFurniture] }));
   },
