@@ -15,11 +15,10 @@ export default function ChatInterface() {
   const messages = useStore((state) => state.messages);
   const addMessage = useStore((state) => state.addMessage);
   const setFurnitureList = useStore((state) => state.setFurnitureList);
-  const isLoading = useStore((state) => state.isLoading);
-  const setIsLoading = useStore((state) => state.setIsLoading);
   const originalImageFile = useStore((state) => state.originalImageFile);
   
   const [inputValue, setInputValue] = useState('');
+  const [isLoading, setIsLoading] = useState(false); // 로컬 로딩 상태 (Chat 전용)
 
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
