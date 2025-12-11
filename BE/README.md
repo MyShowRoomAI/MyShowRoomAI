@@ -39,7 +39,8 @@ GOOGLE_API_KEY=your_actual_gemini_api_key_here
 uvicorn main:app --reload
 
 # 또는
-python main.py
+# python main.py
+source venv/bin/activate && python3 main.py
 ```
 
 서버가 `http://127.0.0.1:8000`에서 실행됩니다.
@@ -139,6 +140,6 @@ ValueError: ⚠️ GOOGLE_API_KEY가 .env 파일에 설정되지 않았습니다
 ### 3. 이미지 포맷 에러
 지원하는 포맷: JPEG, PNG, WEBP
 
-## 📦 Colab 변환
+## 📦 Colab 변환  
 
 로컬에서 테스트 완료 후, `colab/` 폴더의 가이드를 참고하여 Google Colab에서 실행할 수 있습니다.
