@@ -9,6 +9,7 @@ import PanoramaSphere from './3d/PanoramaSphere';
 import InvisibleRoom from './3d/InvisibleRoom';
 import FloorGuide from './3d/FloorGuide';
 import FloorBoundaryLine from './3d/FloorBoundaryLine';
+import GhostFurniture from './3d/GhostFurniture';
 
 export default function Scene() {
   const furnitures = useStore((state) => state.furnitures);
@@ -57,6 +58,8 @@ export default function Scene() {
 
         {/* Visual Floor Guide - PLACE 모드이거나 Debug 모드일 때 표시 */}
         {(mode === 'PLACE' || isDebugMode) && <FloorGuide />}
+
+
 
         {/* Furnitures Rendering */}
         {furnitures.map((item) => (

@@ -22,25 +22,13 @@ export const normalizeModel = (object: Object3D, targetSize: number = 1.5) => {
   const scaleFactor = targetSize / maxDim;
   object.scale.setScalar(scaleFactor);
 
-  // 3. 위치 보정 (Centering & Grounding)
-  // 스케일이 적용된 후의 위치를 다시 계산해야 하므로, 
-  // Object의 위치를 일단 (0,0,0)으로 두고 재계산 논리 적용이 필요하지만,
-  // Three.js에서는 부모의 스케일이 자식에게 영향을 주므로
-  // 여기서는 모델(자식)을 감싸는 Group을 조정하거나, 모델 자체의 Position을 역보정해야 함.
-  
-  // 간단한 방식: 모델 자체를 이동시켜서 시각적으로 (0,0,0)에 오게 함.
-  // 주의: 이미 스케일이 적용되었으므로, 오프셋도 스케일을 고려해야 함.
-  
-  // Bounding Box Center & Min
+  // 3. 위치 보정 (Centering)
+  // 중심점을 (0,0,0)으로 이동
   const center = new Vector3();
   box.getCenter(center);
   
-  // 현재 중심점에서 원점까지의 거리 역산
-  // (Center * Scale) 만큼 이동하면 0점이 됨.
-  // 단, Y축은 Min Y가 0이 되어야 함.
-  
   object.position.x = -center.x * scaleFactor;
-  object.position.y = -box.min.y * scaleFactor;
+  object.position.y = -center.y * scaleFactor; // Y축도 중심으로 정렬
   object.position.z = -center.z * scaleFactor;
 
   // Update Matrix to apply changes immediately if needed

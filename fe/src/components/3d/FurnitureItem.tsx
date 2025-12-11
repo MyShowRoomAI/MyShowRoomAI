@@ -4,8 +4,9 @@ import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { TransformControls, Html, useGLTF } from '@react-three/drei';
 import { ThreeEvent, useThree } from '@react-three/fiber';
-import { Mesh, Group } from 'three';
+import { Mesh, Group, Box3, Vector3 } from 'three';
 import { checkCollision } from '@/utils/collision';
+import { normalizeModel } from '@/utils/modelHelper';
 
 interface FurnitureItemProps {
   id: string;
@@ -19,25 +20,35 @@ type ManipulationMode = 'translate' | 'rotate';
 
 interface ModelLoaderProps {
   modelUrl: string;
+  onLoaded?: (yOffset: number) => void;
 }
 
-import { normalizeModel } from '@/utils/modelHelper';
-
-// ...
-
-function ModelLoader({ modelUrl }: ModelLoaderProps) {
+function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
   // Ngrok URL일 때만 Warning Bypass Header 추가
   const { scene } = useGLTF(modelUrl, true, true, (loader) => {
     if (modelUrl.includes('ngrok')) {
       loader.setRequestHeader({ 'ngrok-skip-browser-warning': 'true' });
     }
   });
+
   // Clone and Normalize
-  const clone = React.useMemo(() => {
+  const { clone, yOffset } = React.useMemo(() => {
     const c = scene.clone(true);
-    normalizeModel(c, 1.5); // Auto-Scale to 1.5m
-    return c;
+    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Centered)
+    
+    // Calculate Height Offset
+    const box = new Box3().setFromObject(c);
+    const size = new Vector3();
+    box.getSize(size);
+    return { clone: c, yOffset: size.y / 2 };
   }, [scene]);
+
+  // Notify parent of the offset required to ground the object
+  React.useEffect(() => {
+    if (onLoaded) {
+      onLoaded(yOffset);
+    }
+  }, [yOffset, onLoaded]);
 
   return (
     <primitive object={clone} />
@@ -184,7 +195,18 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
         ) : (
            <React.Suspense fallback={<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="gray" wireframe /></mesh>}>
              <group>
-               <ModelLoader modelUrl={modelUrl} />
+               <ModelLoader 
+                 modelUrl={modelUrl} 
+                 onLoaded={(yOffset) => {
+                   // 초기 배치(바닥 Y=0)인 경우에만 오프셋 적용하여 위로 올림
+                   // 이미 저장된 위치라면(0이 아니면) 건너뜀
+                   if (Math.abs(position[1]) < 0.001) {
+                      updateFurniture(id, {
+                        position: [position[0], position[1] + yOffset, position[2]]
+                      });
+                   }
+                 }}
+               />
                {/* Selection Highlight for Model - Scale에 맞춰 조정 */}
                {isSelected && (
                   <mesh>

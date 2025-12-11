@@ -1,7 +1,7 @@
 import React, { useMemo, useLayoutEffect } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useStore } from '@/store/useStore';
-import { Mesh, MeshStandardMaterial } from 'three';
+import { Mesh, MeshStandardMaterial, Box3, Vector3 } from 'three';
 import { normalizeModel } from '@/utils/modelHelper';
 
 // Define props locally
@@ -10,13 +10,11 @@ interface GhostFurnitureProps {
   isColliding: boolean;
 }
 
-export default function GhostFurniture({ position, isColliding }: GhostFurnitureProps) {
-  const selectedRecommendation = useStore((state) => state.selectedRecommendation);
-  const modelUrl = selectedRecommendation?.model_url;
-
+// 내부 컴포넌트: 실제 모델 로딩 담당
+function GhostModel({ modelUrl, position, isColliding }: { modelUrl: string, position: [number, number, number], isColliding: boolean }) {
   // GLTF 로드 - Ngrok URL일 때만 Warning Bypass Header 추가
-  const { scene } = useGLTF(modelUrl || '', true, true, (loader) => {
-    if (modelUrl?.includes('ngrok')) {
+  const { scene } = useGLTF(modelUrl, true, true, (loader) => {
+    if (modelUrl.includes('ngrok')) {
       loader.setRequestHeader({ 'ngrok-skip-browser-warning': 'true' });
     }
   });
@@ -26,18 +24,23 @@ export default function GhostFurniture({ position, isColliding }: GhostFurniture
     if (!scene) return null;
     const clone = scene.clone(true);
     
-    // Auto-Scaling 적용 (1.5m 크기로 정규화)
-    // 백엔드에서 scale을 주지 않으므로 여기서 자동 계산
+    // Auto-Scaling 적용 (1.5m 크기로 정규화, 중심점 정렬)
     normalizeModel(clone, 1.5);
     
-    return clone;
+    // Y축 Offest 계산 (바닥에 안착시키기 위함)
+    const box = new Box3().setFromObject(clone);
+    const size = new Vector3();
+    box.getSize(size);
+    const yOffset = size.y / 2;
+
+    return { clone, yOffset };
   }, [scene]);
 
   // Ghost Material 적용 (반투명)
   useLayoutEffect(() => {
-    if (!clonedScene) return;
+    if (!clonedScene?.clone) return;
 
-    clonedScene.traverse((child) => {
+    clonedScene.clone.traverse((child) => {
       if ((child as Mesh).isMesh) {
         const mesh = child as Mesh;
         // 기존 Material을 덮어씌움 (Ghost 효과)
@@ -52,15 +55,28 @@ export default function GhostFurniture({ position, isColliding }: GhostFurniture
     });
   }, [clonedScene, isColliding]);
 
-
-
-
-  if (!modelUrl || !clonedScene) return null;
+  if (!clonedScene) return null;
 
   return (
     <primitive 
-      object={clonedScene} 
+      object={clonedScene.clone} 
+      position={[position[0], position[1] + clonedScene.yOffset, position[2]]} 
+    />
+  );
+}
+
+export default function GhostFurniture({ position, isColliding }: GhostFurnitureProps) {
+  const selectedRecommendation = useStore((state) => state.selectedRecommendation);
+  const modelUrl = selectedRecommendation?.model_url;
+
+  // modelUrl이 유효하지 않으면 hook을 호출하지 않기 위해 컴포넌트 분리
+  if (!modelUrl) return null;
+
+  return (
+    <GhostModel 
+      modelUrl={modelUrl} 
       position={position} 
+      isColliding={isColliding} 
     />
   );
 }
