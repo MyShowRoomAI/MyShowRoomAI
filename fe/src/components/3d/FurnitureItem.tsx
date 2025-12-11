@@ -2,9 +2,9 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { TransformControls, Html } from '@react-three/drei';
+import { TransformControls, Html, useGLTF } from '@react-three/drei';
 import { ThreeEvent, useThree } from '@react-three/fiber';
-import { Mesh, Group, Vector3, Euler } from 'three';
+import { Mesh, Group } from 'three';
 import { checkCollision } from '@/utils/collision';
 
 interface FurnitureItemProps {
@@ -17,13 +17,42 @@ interface FurnitureItemProps {
 
 type ManipulationMode = 'translate' | 'rotate';
 
+interface ModelLoaderProps {
+  modelUrl: string;
+}
+
+import { normalizeModel } from '@/utils/modelHelper';
+
+// ...
+
+function ModelLoader({ modelUrl }: ModelLoaderProps) {
+  const { scene } = useGLTF(modelUrl);
+  // Clone and Normalize
+  const clone = React.useMemo(() => {
+    const c = scene.clone(true);
+    normalizeModel(c, 1.5); // Auto-Scale to 1.5m
+    return c;
+  }, [scene]);
+
+  return (
+    <primitive object={clone} />
+  );
+}
+
+
 export default function FurnitureItem({ id, position, rotation, isSelected, onSelect }: FurnitureItemProps) {
   const updateFurniture = useStore((state) => state.updateFurniture);
   const furnitures = useStore((state) => state.furnitures);
   const roomSize = useStore((state) => state.roomSize);
-  const meshRef = useRef<Mesh>(null);
+  const groupRef = useRef<Group>(null);
   const tooltipRef = useRef<Group>(null);
-  const { gl } = useThree();
+  
+  // Find the furniture item to get modelUrl and scale
+  const item = furnitures.find(f => f.id === id);
+  const modelUrl = item?.modelUrl || 'box';
+  const scale = item?.scale || [1, 1, 1]; // 기본값 [1, 1, 1]
+
+  // UX Requirement: 기본 모드는 'translate'
   
   // UX Requirement: 기본 모드는 'translate'
   const [manipulationMode, setManipulationMode] = useState<ManipulationMode>('translate');
@@ -37,9 +66,9 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
   useEffect(() => {
     if (!isSelected) {
         // 선택 해제 시 모드를 기본값(translate)으로 리셋 (선택적 UX)
-        // 사용자가 다시 선택했을 때 translate로 시작하는 것이 일반적
-        setManipulationMode('translate');
-        return;
+        // 리액트 린트 에러 방지를 위해 비동기 처리
+        const timer = setTimeout(() => setManipulationMode('translate'), 0);
+        return () => clearTimeout(timer);
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -66,9 +95,9 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
       return;
     }
     
-    if (meshRef.current) {
-        const newPos = meshRef.current.position; // Vector3
-        const newRot = meshRef.current.rotation; // Euler
+    if (groupRef.current) {
+        const newPos = groupRef.current.position; // Vector3
+        const newRot = groupRef.current.rotation; // Euler
 
         updateFurniture(id, {
             position: newPos, // Vector3
@@ -79,15 +108,15 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
 
   // 실시간 이동 제한 (Boundary Constraint)
   const handleObjectChange = () => {
-    if (meshRef.current && manipulationMode === 'translate') {
-      const mesh = meshRef.current;
+    if (groupRef.current && manipulationMode === 'translate') {
+      const group = groupRef.current;
       
       // 방의 경계 계산 (가구의 중심 기준)
       const halfWidth = roomSize.width / 2;
       const halfDepth = roomSize.depth / 2;
 
       // 현재 위치
-      const currentPos = mesh.position;
+      const currentPos = group.position;
 
       // 경계 제한 (Clamp)
       // 가구 크기(1x1)를 고려하지 않고 중심점 기준으로 단순 제한하거나,
@@ -97,10 +126,10 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
       const clampedZ = Math.max(-halfDepth, Math.min(halfDepth, currentPos.z));
 
       // 위치 보정 적용
-      mesh.position.set(clampedX, currentPos.y, clampedZ);
+      group.position.set(clampedX, currentPos.y, clampedZ);
       
       // 충돌 감지 (자기 자신 제외)
-      const potentialPos: [number, number, number] = [mesh.position.x, mesh.position.y, mesh.position.z];
+      const potentialPos: [number, number, number] = [group.position.x, group.position.y, group.position.z];
       const otherFurnitures = furnitures.filter(f => f.id !== id);
       
       const collision = checkCollision(
@@ -112,7 +141,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
       if (collision) {
         // 충돌 시: 직전 유효 위치로 복원
         setIsColliding(true);
-        mesh.position.set(...lastValidPosition.current);
+        group.position.set(...lastValidPosition.current);
       } else {
         // 비충돌 시: 현재 위치를 유효 위치로 저장
         setIsColliding(false);
@@ -121,30 +150,49 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
     }
     
     // 툴팁 위치 동기화 (회전 영향 받지 않도록 위치만 복사)
-    if (meshRef.current && tooltipRef.current) {
-      tooltipRef.current.position.copy(meshRef.current.position);
+    if (groupRef.current && tooltipRef.current) {
+      tooltipRef.current.position.copy(groupRef.current.position);
     }
   };
 
   return (
     <>
-      <mesh
-        ref={meshRef}
+      <group
+        ref={groupRef}
         position={position}
         rotation={rotation}
         onClick={onSelect}
-        castShadow
-        receiveShadow
+        // castShadow // Group does not cast shadow directly usually, but children do
+        // receiveShadow
       >
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial 
-          color={
-            isColliding && isSelected ? "red" : 
-            isSelected ? "orange" : 
-            "hotpink"
-          } 
-        />
-    </mesh>
+        {modelUrl === 'box' ? (
+           <mesh castShadow receiveShadow>
+             <boxGeometry args={[1, 1, 1]} />
+             <meshStandardMaterial 
+               color={
+                 isColliding && isSelected ? "red" : 
+                 isSelected ? "orange" : 
+                 "hotpink"
+               } 
+             />
+           </mesh>
+        ) : (
+           <React.Suspense fallback={<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="gray" wireframe /></mesh>}>
+             <group>
+               <ModelLoader modelUrl={modelUrl} />
+               {/* Selection Highlight for Model - Scale에 맞춰 조정 */}
+               {isSelected && (
+                  <mesh>
+                    {/* 모델의 BoundingBox를 정확히 알 수 없으므로 대략적인 스케일 기반 박스 표시 */}
+                    {/* 실제로는 ModelLoader 내부에서 BoundingBox를 계산해서 넘겨줘야 정확함 */}
+                    <boxGeometry args={[1.05, 1.05, 1.05]} /> 
+                    <meshBasicMaterial color={isColliding ? "red" : "orange"} wireframe />
+                  </mesh>
+               )}
+             </group>
+           </React.Suspense>
+        )}
+    </group>
 
     {/* 툴팁: 회전 영향 없이 위치만 따라다니도록 별도 그룹 사용 */}
     {isSelected && (
@@ -213,7 +261,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
 
     {isSelected && (
       <TransformControls
-        object={meshRef as React.MutableRefObject<Mesh>}
+        object={groupRef as React.MutableRefObject<Group>}
         mode={manipulationMode}
         // 드래그 종료 시 위치/회전값 저장
         onMouseUp={handleTransformEnd}

@@ -5,6 +5,7 @@ export interface FurnitureItem {
   image: string;
   model_url: string; // 3D 모델 파일 경로
   desc: string;
+  scale?: [number, number, number]; // 모델 스케일 (선택적)
 }
 
 export const FURNITURE_DATA: FurnitureItem[] = [

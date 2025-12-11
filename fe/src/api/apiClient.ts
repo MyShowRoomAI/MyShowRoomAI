@@ -8,8 +8,8 @@ export interface AiResponse {
   new_furniture_items: FurnitureItem[];
 }
 
-// 백엔드 API 응답 타입 (실제 명세 기준)
-interface BackendApiResponse {
+// 백엔드 API 응답 타입 (실제 명세 기준 - LIST 형태)
+interface BackendApiResponseItem {
   selected_id: string;
   reason: string;
   position_suggestion: string;
@@ -20,6 +20,8 @@ interface BackendApiResponse {
     category: string;
   };
 }
+
+type BackendApiResponse = BackendApiResponseItem[];
 
 /**
  * 실제 백엔드 API를 호출하여 AI 디자인 응답을 가져옵니다.
@@ -42,19 +44,30 @@ export const fetchAiDesignResponse = async (
   formData.append('user_prompt', prompt); // 'prompt'가 아니라 'user_prompt'
 
   try {
-    // 디버깅: 요청 정보 출력
+    // 디버깅: 요청 정보 상세 출력
     console.log('API 요청 시작:', {
       url: `${API_CONFIG.BASE_URL}/consult`,
       imageFileName: imageFile.name,
       imageSize: imageFile.size,
+      imageType: imageFile.type,
       prompt: prompt.substring(0, 50) + '...',
     });
+
+    // FormData 내용 확인 (브라우저 콘솔에서 확인 가능)
+    // 주의: FormData를 console.log로 바로 찍으면 빈 객체로 보일 수 있음
+    for (const [key, value] of formData.entries()) {
+      console.log(`FormData [${key}]:`, value);
+    }
 
     // /consult 엔드포인트 호출
     const response = await fetch(`${API_CONFIG.BASE_URL}/consult`, {
       method: 'POST',
       body: formData,
-      // Content-Type은 자동으로 multipart/form-data로 설정됨
+      headers: {
+        // Swagger와 동일하게 Accept 헤더 명시
+        'Accept': 'application/json',
+        // 'Content-Type': 'multipart/form-data' // 절대 설정하지 말 것! (브라우저가 boundary 자동 설정)
+      },
     });
 
     console.log('API 응답 상태:', response.status, response.statusText);
@@ -69,19 +82,23 @@ export const fetchAiDesignResponse = async (
     console.log('API 응답 데이터:', data);
 
     // 백엔드 응답을 Store 형식으로 매핑
-    // item_details는 단일 객체이므로 배열로 변환
+    const newFurnitureItems: FurnitureItem[] = data.map((item) => ({
+      id: item.item_details.id || item.selected_id, // ID가 item_details에 없으면 selected_id 사용
+      name: item.item_details.name,
+      price: '', // 백엔드에서 제공하지 않음
+      image: '🛋️', // 임시 아이콘
+      model_url: item.item_details.glb_url,
+      desc: item.position_suggestion || item.reason, // 위치 추천이나 이유를 설명으로 사용
+    }));
+
+    // AI 메시지는 첫 번째 아이템의 이유나 일반적인 성공 메시지로 설정
+    const aiMessage = newFurnitureItems.length > 0
+      ? `Here are ${newFurnitureItems.length} recommendations based on your request.`
+      : "Sorry, I couldn't find any recommendations.";
+
     return {
-      ai_message: data.reason, // reason -> ai_message
-      new_furniture_items: [
-        {
-          id: data.item_details.id,
-          name: data.item_details.name,
-          price: '', // 백엔드에서 제공하지 않음
-          image: '🛋️', // 임시 아이콘
-          model_url: data.item_details.glb_url,
-          desc: data.position_suggestion,
-        }
-      ],
+      ai_message: aiMessage,
+      new_furniture_items: newFurnitureItems,
     };
   } catch (error) {
     console.error('fetchAiDesignResponse Error:', error);

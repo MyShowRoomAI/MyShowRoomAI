@@ -2,9 +2,10 @@
 
 import { ThreeEvent } from '@react-three/fiber';
 import { useStore } from '@/store/useStore';
-import { useRef, useState } from 'react';
+import { useRef, useState, Suspense } from 'react';
 import { Mesh, Vector3, BackSide } from 'three';
 import { checkCollision } from '@/utils/collision';
+import GhostFurniture from './GhostFurniture';
 
 export default function InvisibleRoom() {
   const mode = useStore((state) => state.mode);
@@ -108,15 +109,19 @@ export default function InvisibleRoom() {
       </mesh>
 
       {/* Ghost Cube for Debugging / Preview - Only visible in PLACE mode */}
+      {/* Ghost Model for Preview - Only visible in PLACE mode */}
       {mode === 'PLACE' && (
-        <mesh position={cursorPosition} ref={ghostRef}>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshStandardMaterial 
-            color={isColliding ? "red" : "cyan"} 
-            transparent 
-            opacity={0.5} 
+        <Suspense fallback={
+          <mesh position={cursorPosition}>
+            <boxGeometry args={[1, 1, 1]} />
+            <meshStandardMaterial color={isColliding ? "red" : "cyan"} transparent opacity={0.5} wireframe />
+          </mesh>
+        }>
+          <GhostFurniture 
+            position={cursorPosition} 
+            isColliding={isColliding} 
           />
-        </mesh>
+        </Suspense>
       )}
     </>
   );

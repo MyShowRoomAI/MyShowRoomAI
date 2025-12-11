@@ -8,6 +8,7 @@ interface Furniture {
   id: string;
   position: [number, number, number];
   rotation: [number, number, number];
+  scale: [number, number, number]; // 스케일 추가
   modelUrl: string;
   size: { width: number; depth: number };
 }
@@ -33,10 +34,13 @@ interface AppState {
   setRoomSize: (size: { width: number; depth: number; height: number }) => void;
   setIsDebugMode: (isDebug: boolean) => void;
   // Phase 8: Mock API & Dynamic Furniture List
+  // Phase 8: Mock API & Dynamic Furniture List
   currentFurnitureList: FurnitureItem[];
   setFurnitureList: (list: FurnitureItem[]) => void;
   messages: { id: number; sender: 'user' | 'gemini'; text: string }[];
   addMessage: (msg: { sender: 'user' | 'gemini'; text: string }) => void;
+  selectedRecommendation: FurnitureItem | null;
+  setSelectedRecommendation: (item: FurnitureItem | null) => void;
   // Phase A: API Environment
   apiBaseUrl: string;
   originalImageFile: File | null;
@@ -49,7 +53,7 @@ interface AppState {
   setImageSize: (size: { width: number; height: number } | null) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   mode: 'VIEW',
   cursorPosition: [0, 0, 0],
   furnitures: [],
@@ -81,12 +85,21 @@ export const useStore = create<AppState>((set) => ({
   },
   addFurniture: (position) => {
     const pos = position instanceof Vector3 ? [position.x, position.y, position.z] : position;
+    const { selectedRecommendation } = get();
+    
+    // 만약 선택된 추천 가구가 있으면 그것을 사용, 없으면 기본 박스
+    const modelUrl = selectedRecommendation ? selectedRecommendation.model_url : 'box';
+    // 스케일 값이 있으면 사용, 없으면 [1, 1, 1] 기본값
+    const scale = selectedRecommendation?.scale || [1, 1, 1];
+    const initialSize = { width: 1, depth: 1 }; // 나중에 모델 크기에 따라 조정 필요
+
     const newFurniture: Furniture = {
       id: Math.random().toString(36).substr(2, 9),
       position: pos as [number, number, number],
       rotation: [0, 0, 0],
-      modelUrl: 'box', // Mock data
-      size: { width: 1, depth: 1 }, // 기본 크기 (1m x 1m)
+      scale: scale, // 스케일 저장
+      modelUrl: modelUrl,
+      size: initialSize, 
     };
     set((state) => ({ furnitures: [...state.furnitures, newFurniture] }));
   },
@@ -120,7 +133,11 @@ export const useStore = create<AppState>((set) => ({
         ...f, 
         ...restChanges, 
         position: newPosition, 
-        rotation: newRotation 
+        rotation: newRotation,
+        
+        // changes에 scale이 포함된다면 업데이트, 아니면 기존 값 유지 (타입 정의는 Partial이므로 문제 없음)
+        // 하지만 updateFurniture 시그니처를 수정해야 완벽함. 
+        // 현재는 Partial<Omit...> 타입이라 scale이 들어올 수 있음.
       };
     }),
   })),
@@ -142,4 +159,8 @@ export const useStore = create<AppState>((set) => ({
   setOriginalImageFile: (file) => set({ originalImageFile: file }),
   setFloorBoundary: (boundary) => set({ floorBoundary: boundary }),
   setImageSize: (size) => set({ imageSize: size }),
+  
+  // Placement State
+  selectedRecommendation: null,
+  setSelectedRecommendation: (item) => set({ selectedRecommendation: item }),
 }));

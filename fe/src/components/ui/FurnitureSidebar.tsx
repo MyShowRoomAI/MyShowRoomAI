@@ -2,17 +2,20 @@
 
 import React, { useState } from 'react';
 import { useStore } from '@/store/useStore';
-// import { FURNITURE_DATA } from '@/data/mockData'; // Remove hardcoded import
+import { FurnitureItem } from '@/data/mockData';
 
 export default function FurnitureSidebar() {
   const [activeCard, setActiveCard] = useState<number | null>(null);
   const setMode = useStore((state) => state.setMode);
   const furnitureList = useStore((state) => state.currentFurnitureList); // 동적 목록 사용
 
-  const handleCardClick = (idx: number, name: string) => {
+  const setSelectedRecommendation = useStore((state) => state.setSelectedRecommendation);
+
+  const handleCardClick = (idx: number, item: FurnitureItem) => {
     setActiveCard(idx);
+    setSelectedRecommendation(item);
     setMode('PLACE');
-    console.log(`Selected: ${name}`);
+    console.log(`Selected: ${item.name}`);
   };
 
   return (
@@ -30,14 +33,14 @@ export default function FurnitureSidebar() {
               Please request a style<br/>via chat.
             </p>
             <div className="mt-5 text-sm text-blue-300 font-medium bg-blue-500/10 py-1.5 px-4 rounded-full border border-blue-400/20 w-fit mx-auto">
-              Ex: "Design a modern living room"
+              Ex: &quot;Design a modern living room&quot;
             </div>
           </div>
         ) : (
           furnitureList.map((item, idx) => (
           <div
             key={item.id}
-            onClick={() => handleCardClick(idx, item.name)}
+            onClick={() => handleCardClick(idx, item)}
             className={`p-4 rounded-2xl backdrop-blur-md cursor-pointer transition-all duration-300 transform hover:scale-105 ${
               activeCard === idx
                 ? 'bg-white/20 border border-blue-400/50 shadow-lg shadow-blue-500/30'
