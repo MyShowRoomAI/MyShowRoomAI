@@ -2,7 +2,7 @@
 
 import { ThreeEvent } from '@react-three/fiber';
 import { useStore } from '@/store/useStore';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Mesh, Vector3, BackSide } from 'three';
 
 export default function InvisibleRoom() {
@@ -10,10 +10,13 @@ export default function InvisibleRoom() {
   const setCursorPosition = useStore((state) => state.setCursorPosition);
   const cursorPosition = useStore((state) => state.cursorPosition);
   const addFurniture = useStore((state) => state.addFurniture);
+  const setSelectedFurnitureId = useStore((state) => state.setSelectedFurnitureId);
   const roomSize = useStore((state) => state.roomSize);
   const isDebugMode = useStore((state) => state.isDebugMode);
   
   const ghostRef = useRef<Mesh>(null);
+  // 드래그 감지를 위한 포인터 다운 위치 저장
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
   // 방의 바닥 높이 계산
   const floorY = -roomSize.height / 2;
@@ -34,19 +37,44 @@ export default function InvisibleRoom() {
     setCursorPosition(projectedPoint);
   };
 
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    // 마우스 다운 시점의 화면 좌표 저장
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    // 드래그 감지: 포인터 다운 위치와 현재 위치 비교
+    if (pointerDownPos.current) {
+      const deltaX = e.clientX - pointerDownPos.current.x;
+      const deltaY = e.clientY - pointerDownPos.current.y;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      // 5px 이상 움직였으면 드래그로 간주하고 무시
+      if (distance > 5) {
+        pointerDownPos.current = null;
+        return;
+      }
+    }
+    
     if (mode === 'PLACE') {
+      // PLACE 모드: 가구 배치
       const projectedPoint = projectToFloor(e.point);
       addFurniture(projectedPoint);
+    } else {
+      // VIEW 모드: 빈 공간 클릭 시 선택 해제
+      setSelectedFurnitureId(null);
     }
+    
+    pointerDownPos.current = null;
   };
 
   return (
     <>
       {/* Invisible Room Proxy Geometry */}
       <mesh
-        visible={isDebugMode} // 디버그 모드일 때만 보임 (Wireframe)
+        visible={isDebugMode}
         onPointerMove={handlePointerMove}
+        onPointerDown={handlePointerDown}
         onClick={handleClick}
       >
         <boxGeometry args={[roomSize.width, roomSize.height, roomSize.depth]} />

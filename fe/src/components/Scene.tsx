@@ -2,7 +2,7 @@
 
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera } from '@react-three/drei';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import FurnitureItem from './3d/FurnitureItem';
 import PanoramaSphere from './3d/PanoramaSphere';
@@ -13,6 +13,7 @@ export default function Scene() {
   const furnitures = useStore((state) => state.furnitures);
   const selectedFurnitureId = useStore((state) => state.selectedFurnitureId);
   const setSelectedFurnitureId = useStore((state) => state.setSelectedFurnitureId);
+  const setMode = useStore((state) => state.setMode);
   const roomSize = useStore((state) => state.roomSize);
   const isDebugMode = useStore((state) => state.isDebugMode);
 
@@ -21,6 +22,21 @@ export default function Scene() {
   };
 
   const mode = useStore((state) => state.mode);
+
+  // ESC 키 전역 이벤트 리스너: 선택 해제 및 모드 초기화
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedFurnitureId(null); // 선택 해제
+        setMode('VIEW'); // 배치 모드 취소
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setSelectedFurnitureId, setMode]);
 
   return (
     <div className="h-screen w-full bg-gray-900">
