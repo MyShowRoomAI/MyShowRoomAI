@@ -91,8 +91,6 @@ export default function PanoramaSphere() {
     const x = Math.floor(uv.x * imageWidth);
     const y = Math.floor((1 - uv.y) * imageHeight); // Y is usually inverted in texture coords
 
-    console.log(`Clicked UV: (${uv.x.toFixed(4)}, ${uv.y.toFixed(4)}) -> Px: (${x}, ${y})`);
-
     setSelectedPoint({
       point: e.point.clone(),
       x,

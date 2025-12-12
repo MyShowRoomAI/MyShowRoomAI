@@ -11,12 +11,7 @@ export const API_CONFIG = {
 
 // 개발 환경에서 API URL 확인
 if (typeof window !== 'undefined') {
-  console.log('🔧 API Configuration:', {
-    USE_MOCK_API: API_CONFIG.USE_MOCK_API,
-    BASE_URL: API_CONFIG.BASE_URL,
-    PROXY_TARGET: process.env.NEXT_PUBLIC_API_BASE_URL,
-    isConfigured: !!process.env.NEXT_PUBLIC_API_BASE_URL,
-  });
+// 개발 환경에서 API URL 확인 (로그 제거됨)
 }
 
 

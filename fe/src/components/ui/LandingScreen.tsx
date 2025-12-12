@@ -42,7 +42,6 @@ export default function LandingScreen() {
     const img = new Image();
     img.onload = () => {
       setImageSize({ width: img.width, height: img.height });
-      console.log('이미지 크기:', img.width, 'x', img.height);
     };
     img.src = objectUrl;
   };
@@ -70,7 +69,6 @@ export default function LandingScreen() {
     try {
       // 2. 방 구조 분석 API 호출
       const result = await analyzeRoomStructure(originalImageFile);
-      console.log('바닥 마스크 이미지:', result.mask_image ? 'Found' : 'Not Found');
       
       if (!result.mask_image) {
           alert("Warning: Failed to retrieve floor mask. Please ensure backend code is up to date.");
