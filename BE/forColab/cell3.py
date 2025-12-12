@@ -163,28 +163,41 @@ def detect_floor_boundary(image_bgr) -> str:
 
 def process_removal(image_bytes: bytes, x: int, y: int):
     """
-    [Phase 9] SAM(Mask) + Gemini Image Edit API
-    Returns: (Restored Image BGR, Original Shape)
+    [Balanced Inpainting]
+    1024px(저화질) 대신 2048px(중화질)로 리사이징하여 디테일을 살리고,
+    복원 시 LANCZOS4 알고리즘을 사용하여 선명도를 극대화합니다.
     """
     if predictor is None:
         raise ValueError("SAM model is not loaded")
+    
     # 1. Image Conversion
     nparr = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if image is None:
-        raise ValueError("Invalid image")
+    if image is None: raise ValueError("Invalid image")
         
     original_h, original_w = image.shape[:2]
     
-    # [User Request] 원본 해상도 유지 (No Resizing)
-    # 화질 저하를 막기 위해 리사이징 없이 원본 그대로 처리
-    input_image = image
-    input_x = x
-    input_y = y
+    # =========================================================
+    # [수정] 해상도를 2048px로 상향 조정 (화질 개선)
+    # =========================================================
+    PROCESS_WIDTH = 2048  # 기존 1024 -> 2048로 변경
+    
+    if original_w > PROCESS_WIDTH:
+        scale = PROCESS_WIDTH / original_w
+        new_h = int(original_h * scale)
+        # 축소할 때는 INTER_AREA가 가장 깨끗하게 줄어듭니다.
+        input_image = cv2.resize(image, (PROCESS_WIDTH, new_h), interpolation=cv2.INTER_AREA)
+        input_x = int(x * scale)
+        input_y = int(y * scale)
+    else:
+        input_image = image
+        input_x = x
+        input_y = y
         
     image_rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
     proc_h, proc_w = image_rgb.shape[:2]
-    # 2. SAM Prediction (Click)
+
+    # 2. SAM Prediction
     predictor.set_image(image_rgb)
     input_point = np.array([[input_x, input_y]])
     input_label = np.array([1]) 
@@ -194,24 +207,24 @@ def process_removal(image_bytes: bytes, x: int, y: int):
         multimask_output=True, 
     )
     
-    # 3. Union Mask Strategy
+    # 3. Mask Processing
     combined_mask = np.logical_or(masks[0], masks[1])
     combined_mask = np.logical_or(combined_mask, masks[2])
     mask_uint8 = (combined_mask * 255).astype(np.uint8)
     
-    # 4. Dilate Mask
+    # Dilate
     kernel = np.ones((10,10), np.uint8)
     mask_dilated = cv2.dilate(mask_uint8, kernel, iterations=3)
 
-    # 5. Call Gemini Image Edit API
-    print("🚀 Calling Gemini (2.5 Flash Image) API for Removal...")
+    # 4. Call Gemini
+    print(f"🚀 Calling Gemini (2.5 Flash Image) - 2K Mode ({proc_w}x{proc_h})")
     
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            # Red Mask Overlay for Prompting
             image_with_mask = image_rgb.copy()
             image_with_mask[mask_dilated > 0] = [255, 0, 0] # Red
+            
             prompt_text = (
                 "The area marked in RED is an unwanted object. "
                 "Remove it completely and fill the space with a realistic wooden floor and white wall to match the room. "
@@ -233,38 +246,67 @@ def process_removal(image_bytes: bytes, x: int, y: int):
                     candidate_count=1,
                 ),
             )
-            # Response Parsing
+            
             if response.candidates and response.candidates[0].content.parts:
                 for part in response.candidates[0].content.parts:
                     if part.inline_data:
                         img_data = part.inline_data.data
                         nparr_res = np.frombuffer(img_data, np.uint8)
+                        
+                        # Gemini 결과 (2048px)
                         res_img = cv2.imdecode(nparr_res, cv2.IMREAD_COLOR)
                         if res_img is None: continue
                         
-                        # (A) Histogram Matching (Color Correction)
+                        # (A) Histogram Matching (색감 보정)
+                        # 결과물이 미세하게 사이즈가 다를 수 있으므로 리사이징 먼저 수행
                         res_img_resized = cv2.resize(res_img, (proc_w, proc_h))
+                        
                         try:
                             from skimage import exposure
                             matched = exposure.match_histograms(res_img_resized, input_image, channel_axis=-1)
-                            final_proc_img = matched.astype(np.uint8)
+                            gemini_final_mid = matched.astype(np.uint8)
                         except:
-                            final_proc_img = res_img_resized
+                            gemini_final_mid = res_img_resized
                             
-                        # (B) Restore to Original Size
+                        # =========================================================
+                        # 🧬 [Hybrid Compositing] 고품질 복원
+                        # =========================================================
+                        
+                        # 1. Upscaling (LANCZOS4 사용 - 선명도 유지에 유리)
                         if original_w != proc_w:
-                            final_full_img = cv2.resize(final_proc_img, (original_w, original_h), interpolation=cv2.INTER_CUBIC)
-                            print(f"🔄 Restored Image to Original Size: {original_w}x{original_h}")
-                            return final_full_img
+                            gemini_upscaled = cv2.resize(gemini_final_mid, (original_w, original_h), interpolation=cv2.INTER_LANCZOS4)
+                            mask_upscaled = cv2.resize(mask_dilated, (original_w, original_h), interpolation=cv2.INTER_NEAREST)
                         else:
-                            return final_proc_img
+                            gemini_upscaled = gemini_final_mid
+                            mask_upscaled = mask_dilated
+
+                        # 2. Feathering
+                        mask_float = mask_upscaled.astype(np.float32) / 255.0
+                        mask_blurred = cv2.GaussianBlur(mask_float, (21, 21), 0)
+                        if len(mask_blurred.shape) == 2:
+                            mask_blurred = np.dstack([mask_blurred]*3)
+
+                        # 3. Final Composite
+                        original_bgr = image.astype(np.float32)
+                        gemini_float = gemini_upscaled.astype(np.float32)
+                        
+                        final_composite = (gemini_float * mask_blurred) + \
+                                          (original_bgr * (1.0 - mask_blurred))
+                        
+                        print(f"✅ Inpainting Complete! (2048px -> Upscaled)")
+                        return final_composite.astype(np.uint8)
                         
             raise ValueError("No image part in Gemini response")
  
         except Exception as e:
             print(f"Attempt {attempt+1} failed: {e}")
-            if attempt < max_retries - 1: time.sleep(10)
-            else: raise e
+            if "429" in str(e) or "quota" in str(e).lower():
+                print("⏳ Quota exceeded. Waiting 40s...")
+                time.sleep(40) # 2048px은 1024px보다 토큰을 더 쓰므로 대기시간을 조금 늘림
+            elif attempt < max_retries - 1:
+                time.sleep(5)
+            else:
+                raise e
 
 @app.post("/remove-object", response_model=RemoveObjectResponse)
 async def remove_object(file: UploadFile = File(...), x: int = Form(...), y: int = Form(...)):

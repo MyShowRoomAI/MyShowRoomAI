@@ -79,8 +79,8 @@ export default function PanoramaSphere() {
     if (!uv) return;
 
     // Get real image dimensions from the loaded texture
-    const imageWidth = texture.image.width;
-    const imageHeight = texture.image.height;
+    const imageWidth = (texture.image as HTMLImageElement).width;
+    const imageHeight = (texture.image as HTMLImageElement).height;
 
     // Convert UV to Pixel Coordinates
     // Note: sphere UV mapping might need horizontal flip (1-u) depending on geometry
