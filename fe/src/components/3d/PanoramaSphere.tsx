@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, MouseEvent as ReactMouseEvent } from 'react';
 import { useTexture, Html } from '@react-three/drei';
 import { BackSide, Vector3 } from 'three';
 import { ThreeEvent } from '@react-three/fiber';
@@ -19,6 +19,41 @@ const base64ToFile = (base64Str: string, filename: string): File => {
   }
   return new File([u8arr], filename, { type: mime });
 };
+
+// 3D Selection Pointer Component (Pin Shape)
+function SelectionPointer() {
+    return (
+        <group>
+            {/* Pin Head (Sphere) */}
+            <mesh position={[0, 10, 0]}>
+                <sphereGeometry args={[4, 32, 32]} />
+                <meshStandardMaterial 
+                    color="#ef4444" 
+                    emissive="#991b1b"
+                    emissiveIntensity={0.5}
+                    roughness={0.2}
+                    metalness={0.8}
+                />
+            </mesh>
+            {/* Pin Body (Cone) */}
+            <mesh position={[0, 5, 0]} rotation={[Math.PI, 0, 0]}>
+                <coneGeometry args={[2, 10, 32]} />
+                <meshStandardMaterial 
+                    color="#ef4444" 
+                    emissive="#991b1b"
+                    emissiveIntensity={0.5}
+                    roughness={0.2}
+                    metalness={0.8}
+                />
+            </mesh>
+            {/* Optional: Simple shadow/base ring */}
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 0]}>
+                <ringGeometry args={[1, 3, 32]} />
+                <meshBasicMaterial color="black" transparent opacity={0.3} side={2} />
+            </mesh>
+        </group>
+    )
+}
 
 export default function PanoramaSphere() {
   const mode = useStore((state) => state.mode);
@@ -64,7 +99,8 @@ export default function PanoramaSphere() {
     });
   };
 
-  const handleConfirmRemove = async () => {
+  const handleConfirmRemove = async (e: ReactMouseEvent) => {
+    e.stopPropagation();
     if (!selectedPoint || !originalImageFile) {
         console.error("No point selected or original file missing");
         return;
@@ -105,7 +141,8 @@ export default function PanoramaSphere() {
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = (e: ReactMouseEvent) => {
+    e.stopPropagation();
     setSelectedPoint(null);
   };
 
@@ -124,54 +161,79 @@ export default function PanoramaSphere() {
         {/* Selection Marker & Modal */}
         {selectedPoint && mode === 'REMOVE' && (
             <group position={selectedPoint.point}>
-                {/* Red Marker */}
-                <mesh>
-                    <sphereGeometry args={[5, 16, 16]} /> 
-                    <meshBasicMaterial color="red" depthTest={false} transparent opacity={0.8} />
-                </mesh>
+                {/* 3D Pointer Component */}
+                <SelectionPointer />
 
-                {/* UI Overlay */}
-                <Html position={[0, 15, 0]} center zIndexRange={[100, 0]}>
-                    <div style={{ 
-                        background: 'rgba(0,0,0,0.8)', 
-                        padding: '12px 16px', 
-                        borderRadius: '8px', 
-                        backdropFilter: 'blur(4px)',
-                        color: 'white',
-                        textAlign: 'center',
-                        minWidth: '200px'
-                    }}>
-                        <p style={{ margin: '0 0 10px 0', fontSize: '14px' }}>이 가구를 지우시겠습니까?</p>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                            <button 
-                                onClick={handleConfirmRemove}
-                                style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    border: 'none',
-                                    background: '#ef4444',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontWeight: 'bold',
-                                    fontSize: '12px'
-                                }}
-                            >
-                                삭제하기
-                            </button>
-                            <button 
-                                onClick={handleCancel}
-                                style={{
-                                    padding: '6px 12px',
-                                    borderRadius: '4px',
-                                    border: '1px solid #555',
-                                    background: 'transparent',
-                                    color: '#ddd',
-                                    cursor: 'pointer',
-                                    fontSize: '12px'
-                                }}
-                            >
-                                취소
-                            </button>
+                {/* UI Overlay - Positioned higher to float above the pointer */}
+                <Html position={[0, 40, 0]} center zIndexRange={[100, 0]}>
+                    <div style={{ transform: 'translate3d(0, -50%, 0) translateY(-20px)' }}>
+                        <div 
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onPointerUp={(e) => e.stopPropagation()}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ 
+                                background: 'rgba(0,0,0,0.85)', 
+                                padding: '16px 20px', 
+                                borderRadius: '12px', 
+                                backdropFilter: 'blur(8px)',
+                                color: 'white',
+                                textAlign: 'center',
+                                minWidth: '220px',
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                animation: 'fadeInUp 0.3s ease-out forwards'
+                            }}
+                        >
+                            <style>{`
+                                @keyframes fadeInUp {
+                                    from { opacity: 0; transform: translateY(10px); }
+                                    to { opacity: 1; transform: translateY(0); }
+                                }
+                            `}</style>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 500 }}>이 가구를 지우시겠습니까?</p>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                                <button 
+                                    onClick={handleConfirmRemove}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        background: '#ef4444',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontWeight: '600',
+                                        fontSize: '13px',
+                                        transition: 'background 0.2s'
+                                    }}
+                                    onMouseOver={(e) => e.currentTarget.style.background = '#dc2626'}
+                                    onMouseOut={(e) => e.currentTarget.style.background = '#ef4444'}
+                                >
+                                    삭제하기
+                                </button>
+                                <button 
+                                    onClick={handleCancel}
+                                    style={{
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #525252',
+                                        background: 'transparent',
+                                        color: '#e5e5e5',
+                                        cursor: 'pointer',
+                                        fontSize: '13px',
+                                        transition: 'border-color 0.2s, color 0.2s'
+                                    }}
+                                    onMouseOver={(e) => {
+                                        e.currentTarget.style.borderColor = '#a3a3a3';
+                                        e.currentTarget.style.color = 'white';
+                                    }}
+                                    onMouseOut={(e) => {
+                                        e.currentTarget.style.borderColor = '#525252';
+                                        e.currentTarget.style.color = '#e5e5e5';
+                                    }}
+                                >
+                                    취소
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </Html>
