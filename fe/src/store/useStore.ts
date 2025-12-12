@@ -47,8 +47,8 @@ interface AppState {
   setApiBaseUrl: (url: string) => void;
   setOriginalImageFile: (file: File | null) => void;
   // Floor Boundary
-  floorBoundary: Array<{ x: number; y: number }> | null;
-  setFloorBoundary: (boundary: Array<{ x: number; y: number }> | null) => void;
+  floorMaskUrl: string | null;
+  setFloorMaskUrl: (url: string | null) => void;
   imageSize: { width: number; height: number } | null;
   setImageSize: (size: { width: number; height: number } | null) => void;
 }
@@ -71,7 +71,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Phase A Initial State
   apiBaseUrl: '',
   originalImageFile: null,
-  floorBoundary: null,
+  floorMaskUrl: null,
   imageSize: null,
 
   setMode: (mode) => set({ mode }),
@@ -157,7 +157,7 @@ export const useStore = create<AppState>((set, get) => ({
   // Phase A Actions
   setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
   setOriginalImageFile: (file) => set({ originalImageFile: file }),
-  setFloorBoundary: (boundary) => set({ floorBoundary: boundary }),
+  setFloorMaskUrl: (url) => set({ floorMaskUrl: url }),
   setImageSize: (size) => set({ imageSize: size }),
   
   // Placement State

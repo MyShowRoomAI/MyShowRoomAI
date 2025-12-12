@@ -1,5 +1,4 @@
 import { FurnitureItem } from '@/data/mockData';
-import { MOCK_FLOOR_BOUNDARY } from '@/data/mockFloorData';
 import { API_CONFIG } from '@/config/api';
 import { fetchAiDesignResponse as fetchMockResponse } from './mockApi';
 
@@ -116,18 +115,18 @@ export const fetchAiDesignResponse = async (
 /**
  * 방 구조 분석 API 호출
  * @param imageFile 원본 이미지 파일
- * @returns 바닥 경계 좌표
+ * @returns 바닥 마스크 이미지 (Base64)
  */
 export const analyzeRoomStructure = async (
   imageFile: File
-): Promise<{ status: string; floor_boundary: Array<{ x: number; y: number }> }> => {
+): Promise<{ status: string; mask_image: string }> => {
   // Mock API 사용
   if (API_CONFIG.USE_MOCK_API) {
     console.log('🔄 Using Mock API for room analysis');
     await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기
     return {
       status: "success",
-      floor_boundary: MOCK_FLOOR_BOUNDARY,
+      mask_image: "", // Mock Data: Empty for now
     };
   }
 
@@ -172,7 +171,7 @@ export const removeObject = async (
   imageFile: File,
   x: number,
   y: number
-): Promise<{ status: string; image: string; floor_boundary: Array<{ x: number; y: number }> }> => {
+): Promise<{ status: string; image: string; mask_image: string }> => {
 
     // Mock API 사용
     if (API_CONFIG.USE_MOCK_API) {
@@ -183,7 +182,7 @@ export const removeObject = async (
             // Return a placeholder or the same image as base64 if needed for mock
             // For now, just a dummy string to satisfy type, logic should handle it.
             image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", 
-            floor_boundary: []
+            mask_image: ""
         };
     }
 

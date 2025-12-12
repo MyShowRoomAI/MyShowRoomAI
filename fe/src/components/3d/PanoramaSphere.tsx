@@ -62,6 +62,7 @@ export default function PanoramaSphere() {
   const setTextureUrl = useStore((state) => state.setTextureUrl);
   const setOriginalImageFile = useStore((state) => state.setOriginalImageFile);
   const setIsLoading = useStore((state) => state.setIsLoading);
+  const setFloorMaskUrl = useStore((state) => state.setFloorMaskUrl);
 
   const texture = useTexture(textureUrl!);
 
@@ -129,6 +130,11 @@ export default function PanoramaSphere() {
         // For consistency/memory, let's use the object URL of the new file? 
         // Or just the base64 string. useTexture supports data URIs.
         setTextureUrl(base64Image); 
+
+        // Update Floor Mask as well
+        if (response.mask_image) {
+            setFloorMaskUrl(response.mask_image);
+        }
 
         // Close modal
         setSelectedPoint(null);

@@ -8,7 +8,7 @@ import FurnitureItem from './3d/FurnitureItem';
 import PanoramaSphere from './3d/PanoramaSphere';
 import InvisibleRoom from './3d/InvisibleRoom';
 import FloorGuide from './3d/FloorGuide';
-import FloorBoundaryLine from './3d/FloorBoundaryLine';
+import FloorOverlay from './3d/FloorOverlay';
 import GhostFurniture from './3d/GhostFurniture';
 
 export default function Scene() {
@@ -51,7 +51,7 @@ export default function Scene() {
         <Suspense fallback={null}>
           {/* textureUrl이 있을 때만 PanoramaSphere 렌더링하여 Hook 에러 방지 */}
           {useStore.getState().textureUrl && <PanoramaSphere />}
-          <FloorBoundaryLine />
+          <FloorOverlay />
         </Suspense>
 
         <InvisibleRoom />
