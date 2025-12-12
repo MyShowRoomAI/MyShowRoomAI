@@ -73,7 +73,7 @@ export default function LandingScreen() {
       console.log('바닥 마스크 이미지:', result.mask_image ? 'Found' : 'Not Found');
       
       if (!result.mask_image) {
-          alert("경고: 바닥 마스크를 받아오지 못했습니다. 백엔드(Colab) 코드가 최신 버전인지 확인해주세요.");
+          alert("Warning: Failed to retrieve floor mask. Please ensure backend code is up to date.");
       }
 
       // 3. 바닥 경계 데이터 저장
@@ -83,8 +83,8 @@ export default function LandingScreen() {
       setTextureUrl(previewUrl);
       
     } catch (error) {
-      console.error('방 분석 실패:', error);
-      alert('방 구조 분석 중 오류가 발생했습니다.');
+      console.error('Room analysis failed:', error);
+      alert('Error analyzing room structure.');
       setIsLoading(false);
     }
   };

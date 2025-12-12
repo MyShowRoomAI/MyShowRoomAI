@@ -34,8 +34,8 @@ export default function LoadingScreen({ loadingProgress = 0, variant = 'full' }:
       <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in">
         <div className="bg-white/10 p-8 rounded-3xl backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col items-center transform scale-110">
             <Loader2 className="w-12 h-12 text-blue-400 animate-spin mb-4" />
-            <p className="text-xl font-bold tracking-wide">AI가 작업을 수행 중입니다...</p>
-            <p className="text-sm text-gray-300 mt-2">잠시만 기다려주세요</p>
+            <p className="text-xl font-bold tracking-wide">AI is processing...</p>
+            <p className="text-sm text-gray-300 mt-2">Please wait a moment</p>
         </div>
       </div>
     );

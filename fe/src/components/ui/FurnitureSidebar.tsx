@@ -46,10 +46,10 @@ export default function FurnitureSidebar() {
             <div className="text-white text-base text-center py-12 px-4 bg-white/5 rounded-2xl border border-white/10 backdrop-blur-md">
               <p className="font-semibold text-lg text-blue-200">✨ AI Assistant</p>
               <p className="mt-3 text-gray-300 leading-relaxed text-sm">
-                채팅창에 원하는 스타일을 요청해보세요.<br/>AI가 어울리는 가구를 찾아드립니다.
+                Please request a style via chat.<br/>AI will find matching furniture for you.
               </p>
               <div className="mt-6 text-xs text-blue-300 font-medium bg-blue-500/20 py-2 px-4 rounded-xl border border-blue-400/20 inline-block">
-                Ex: "북유럽 스타일 거실 꾸며줘"
+                Ex: "Design a modern living room"
               </div>
             </div>
           ) : (

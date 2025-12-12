@@ -12,7 +12,7 @@ export const fetchAiDesignResponse = async (prompt: string): Promise<AiResponse>
 
   // Mock Data 반환
   return {
-    ai_message: "모던 미니멀리즘 스타일에 맞게 새로운 가구 목록을 제안드립니다.",
+    ai_message: "Here are some furniture suggestions for a Modern Minimalist style.",
     new_furniture_items: [
       {
         id: 'new-1',

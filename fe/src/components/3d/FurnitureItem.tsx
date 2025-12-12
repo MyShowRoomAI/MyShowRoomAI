@@ -206,7 +206,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
           <div className="whitespace-nowrap bg-black/80 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/20 shadow-xl flex flex-col items-center gap-1">
             <div className="text-xs text-gray-300 uppercase tracking-wider">Mode</div>
             <div className="text-base font-bold text-blue-400">
-              {manipulationMode === 'translate' ? '이동 (Translate)' : '회전 (Rotate)'}
+              {manipulationMode === 'translate' ? 'Translate' : 'Rotate'}
             </div>
             <div className="h-px w-full bg-white/20 my-1" />
             <div className="flex gap-2 text-xs">
@@ -217,7 +217,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
                 }}
                 className={`kb-button ${manipulationMode === 'rotate' ? 'kb-button-active' : 'kb-button-inactive'}`}
               >
-                <span className="kb-key">[R]</span> 회전
+                <span className="kb-key">[R]</span> Rotate
               </button>
               <button
                 onClick={(e) => {
@@ -226,7 +226,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
                 }}
                 className={`kb-button ${manipulationMode === 'translate' ? 'kb-button-active' : 'kb-button-inactive'}`}
               >
-                <span className="kb-key">[T]</span> 이동
+                <span className="kb-key">[T]</span> Translate
               </button>
             </div>
           </div>
