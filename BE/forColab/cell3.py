@@ -180,19 +180,11 @@ def process_removal(image_bytes: bytes, x: int, y: int):
         
     original_h, original_w = image.shape[:2]
     
-    # Resize to 1024 for Processing (Speed/Stability)
-    PROCESS_WIDTH = 1024
-    if original_w > PROCESS_WIDTH:
-        scale = PROCESS_WIDTH / original_w
-        new_h = int(original_h * scale)
-        input_image = cv2.resize(image, (PROCESS_WIDTH, new_h))
-        # 좌표도 줄여야 함
-        input_x = int(x * scale)
-        input_y = int(y * scale)
-    else:
-        input_image = image
-        input_x = x
-        input_y = y
+    # [User Request] 원본 해상도 유지 (No Resizing)
+    # 화질 저하를 막기 위해 리사이징 없이 원본 그대로 처리
+    input_image = image
+    input_x = x
+    input_y = y
         
     image_rgb = cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB)
     proc_h, proc_w = image_rgb.shape[:2]
