@@ -72,6 +72,12 @@ def detect_floor_boundary(image_bgr):
     """
     SegFormer(ADE20K)를 사용하여 '바닥(Floor)' 영역을 찾고, 그 경계선 좌표를 Polygon으로 반환합니다.
     (OOM 방지를 위해 800px 리사이징 후 처리 -> 좌표 복원)
+    
+    [개선 사항]
+    1. Class Union: Floor(3) + Carpet(9) + Rug(29) + Mat(27)
+    2. Force Bottom: 파노라마 특성상 하단 5%는 무조건 바닥으로 간주
+    3. Morphology: (50,50) Large Kernel Closing으로 가구에 의한 구멍 메움
+    4. External Contour: 내부 구멍 무시하고 전체 방의 바닥 윤곽선만 추출
     """
     if seg_model is None: 
         print("⚠️ SegModel is None")
@@ -103,14 +109,24 @@ def detect_floor_boundary(image_bgr):
         
         pred_seg = upsampled_logits.argmax(dim=1)[0].cpu().numpy()
         
-        # 4. Floor Mask (3=Floor, 29=Rug)
-        floor_mask = np.isin(pred_seg, [3, 29]).astype(np.uint8) * 255
+        # 4. Floor Mask Enriched (Class Union)
+        # ADE20K Index: 3=Floor, 9=Carpet, 27=Mat, 29=Rug
+        floor_classes = [3, 9, 27, 29]
+        floor_mask = np.isin(pred_seg, floor_classes).astype(np.uint8) * 255
         
-        # Closing (디테일 유지를 위해 커널 최소화)
-        kernel = np.ones((3,3), np.uint8)
+        # [Panorama Specific] Force Bottom Edge
+        # 이미지 하단 5%는 무조건 바닥이라고 가정 (끊김 방지)
+        force_bottom_h = int(new_h * 0.95)
+        floor_mask[force_bottom_h:, :] = 255
+
+        # 5. Morphological Closing (Aggressive)
+        # 가구(침대, 책상 등)로 인해 끊긴 바닥을 하나로 잇기 위해 매우 큰 커널 사용
+        kernel_size = 50 # 800px 기준 50px면 꽤 큼
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
         floor_mask = cv2.morphologyEx(floor_mask, cv2.MORPH_CLOSE, kernel)
         
-        # 5. Find Contours
+        # 6. Find Contours
+        # RETR_EXTERNAL: 구멍(가구)는 무시하고 가장 바깥쪽 외곽선만 땀
         contours, _ = cv2.findContours(floor_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if not contours:
@@ -119,12 +135,12 @@ def detect_floor_boundary(image_bgr):
             
         largest_contour = max(contours, key=cv2.contourArea)
         
-        # 6. Approx Poly (High Detail)
-        # 0.005 -> 0.002 로 낮춰서 가구 굴곡을 더 정밀하게 표현
-        epsilon = 0.002 * cv2.arcLength(largest_contour, True)
+        # 7. Approx Poly (Straight Lines)
+        # 0.005: 적당히 직선화하여 깔끔한 바닥 폴리곤 생성
+        epsilon = 0.005 * cv2.arcLength(largest_contour, True)
         approx_curve = cv2.approxPolyDP(largest_contour, epsilon, True)
         
-        # 7. Restore Coordinates to Original Scale
+        # 8. Restore Coordinates to Original Scale
         points = []
         for p in approx_curve:
             px_low = p[0][0]
