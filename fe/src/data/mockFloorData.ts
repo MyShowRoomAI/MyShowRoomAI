@@ -1,3 +1,9 @@
+// Mock 데이터가 기준으로 하는 파노라마 이미지 크기
+export const MOCK_IMAGE_SIZE = {
+  width: 6144,
+  height: 3072
+};
+
 export const MOCK_FLOOR_BOUNDARY = [
     {
       "x": 0,

@@ -21,7 +21,7 @@ export default function FloorBoundaryLine() {
       const normalizedY = y / imageHeight;
 
       // 구형 좌표로 변환 (equirectangular projection)
-      const phi = (1 - normalizedY) * Math.PI; // 위아래 (0 ~ π)
+      const phi = normalizedY * Math.PI; // 위아래 (0 ~ π): 0=천장, π=바닥
       const theta = (normalizedX - 0.5) * 2 * Math.PI; // 좌우 (-π ~ π)
 
       // 3D 좌표 계산 (구의 반지름을 roomSize 기준으로)
