@@ -15,7 +15,6 @@ export default function FurnitureSidebar() {
     setActiveCard(idx);
     setSelectedRecommendation(item);
     setMode('PLACE');
-    console.log(`Selected: ${item.name}`);
   };
 
   return (

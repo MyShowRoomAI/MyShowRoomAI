@@ -19,7 +19,6 @@ function FloorOverlayMesh({ url }: { url: string }) {
     img.src = url;
     
     img.onload = () => {
-      console.log('FloorOverlay: Image loaded', img.width, img.height);
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;

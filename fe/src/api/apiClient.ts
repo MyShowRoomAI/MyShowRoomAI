@@ -35,7 +35,6 @@ export const fetchAiDesignResponse = async (
 ): Promise<AiResponse> => {
   // Mock API 사용 (서버 꺼져있을 때)
   if (API_CONFIG.USE_MOCK_API) {
-    console.log('🔄 Using Mock API (server is offline)');
     return fetchMockResponse(prompt);
   }
   // FormData 구성
@@ -44,21 +43,6 @@ export const fetchAiDesignResponse = async (
   formData.append('user_prompt', prompt); // 'prompt'가 아니라 'user_prompt'
 
   try {
-    // 디버깅: 요청 정보 상세 출력
-    console.log('API 요청 시작:', {
-      url: `${API_CONFIG.BASE_URL}/consult`,
-      imageFileName: imageFile.name,
-      imageSize: imageFile.size,
-      imageType: imageFile.type,
-      prompt: prompt.substring(0, 50) + '...',
-    });
-
-    // FormData 내용 확인 (브라우저 콘솔에서 확인 가능)
-    // 주의: FormData를 console.log로 바로 찍으면 빈 객체로 보일 수 있음
-    for (const [key, value] of formData.entries()) {
-      console.log(`FormData [${key}]:`, value);
-    }
-
     // /consult 엔드포인트 호출
     const response = await fetch(`${API_CONFIG.BASE_URL}/consult`, {
       method: 'POST',
@@ -70,7 +54,7 @@ export const fetchAiDesignResponse = async (
       },
     });
 
-    console.log('API 응답 상태:', response.status, response.statusText);
+
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -79,7 +63,6 @@ export const fetchAiDesignResponse = async (
     }
 
     const data: BackendApiResponse = await response.json();
-    console.log('API 응답 데이터:', data);
 
     // 백엔드 응답을 Store 형식으로 매핑
     const newFurnitureItems: FurnitureItem[] = data.map((item) => ({
@@ -122,7 +105,6 @@ export const analyzeRoomStructure = async (
 ): Promise<{ status: string; mask_image: string }> => {
   // Mock API 사용
   if (API_CONFIG.USE_MOCK_API) {
-    console.log('🔄 Using Mock API for room analysis (Generated Canvas)');
     await new Promise(r => setTimeout(r, 1500)); 
     
     // Create a larger mock mask (512x256)
@@ -163,14 +145,13 @@ export const analyzeRoomStructure = async (
   formData.append('file', imageFile);
 
   try {
-    console.log('API 요청 시작: /analyze-image');
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/analyze-image`, {
       method: 'POST',
       body: formData,
     });
 
-    console.log('API 응답 상태:', response.status, response.statusText);
+
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -179,7 +160,6 @@ export const analyzeRoomStructure = async (
     }
 
     const data = await response.json();
-    console.log('방 구조 분석 완료:', data);
 
     return data;
   } catch (error) {
@@ -203,7 +183,6 @@ export const removeObject = async (
 
     // Mock API 사용
     if (API_CONFIG.USE_MOCK_API) {
-        console.log('🔄 Using Mock API for remove object');
         await new Promise(r => setTimeout(r, 1500));
         return {
             status: "success",
@@ -220,14 +199,13 @@ export const removeObject = async (
   formData.append('y', y.toString());
 
   try {
-    console.log('API 요청 시작: /remove-object', { x, y });
 
     const response = await fetch(`${API_CONFIG.BASE_URL}/remove-object`, {
       method: 'POST',
       body: formData,
     });
 
-    console.log('API 응답 상태:', response.status, response.statusText);
+
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -236,7 +214,6 @@ export const removeObject = async (
     }
 
     const data = await response.json();
-    console.log('가구 삭제 완료:', data.status);
     return data;
   } catch (error) {
     console.error('removeObject Error:', error);
