@@ -56,7 +56,7 @@ export default function Scene() {
         <InvisibleRoom />
 
         {/* Visual Floor Guide - PLACE 모드이거나 Debug 모드일 때 표시 */}
-        <InvisibleRoom />
+
 
 
 
