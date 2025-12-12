@@ -18,21 +18,26 @@ export default function Home() {
   const isLoading = useStore((state) => state.isLoading);
   const setIsLoading = useStore((state) => state.setIsLoading);
   
-  // 로딩 진행률 (0~100)
+  // 초기 로딩 완료 여부
+  const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
+
+  // 로딩 진행률 (0~100) - 초기 로딩용
   const [loadingProgress, setLoadingProgress] = useState(0);
 
-  // 텍스처가 로드되면 로딩 완료
+  // 텍스처가 로드되면 초기 로딩 프로세스 진행
   useEffect(() => {
-    if (textureUrl && isLoading) {
-      // 약간의 지연 후 로딩 완료
+    if (textureUrl && !isInitialLoadDone) {
+      // 초기 로딩 시뮬레이션
       setTimeout(() => {
         setLoadingProgress(100);
         setTimeout(() => {
           setIsLoading(false);
+          setIsInitialLoadDone(true);
         }, 300);
       }, 500);
     }
-  }, [textureUrl, isLoading, setIsLoading]);
+    // Note: 이미 isInitialLoadDone이면 isLoading 상태는 PanoramaSphere 등이 직접 제어함
+  }, [textureUrl, isInitialLoadDone, setIsLoading]);
 
   // Case 1: 이미지가 없으면 랜딩 페이지
   if (!textureUrl) {
@@ -51,7 +56,10 @@ export default function Home() {
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-50">
-          <LoadingScreen loadingProgress={loadingProgress} />
+          <LoadingScreen 
+            loadingProgress={loadingProgress} 
+            variant={!isInitialLoadDone ? 'full' : 'overlay'} 
+          />
         </div>
       )}
 

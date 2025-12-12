@@ -161,4 +161,60 @@ export const analyzeRoomStructure = async (
   }
 };
 
+/**
+ * 가구 삭제 API 호출
+ * @param imageFile 원본 이미지 파일
+ * @param x 삭제할 x좌표
+ * @param y 삭제할 y좌표
+ * @returns 처리된 이미지(base64) 및 상태
+ */
+export const removeObject = async (
+  imageFile: File,
+  x: number,
+  y: number
+): Promise<{ status: string; image: string; floor_boundary: Array<{ x: number; y: number }> }> => {
+
+    // Mock API 사용
+    if (API_CONFIG.USE_MOCK_API) {
+        console.log('🔄 Using Mock API for remove object');
+        await new Promise(r => setTimeout(r, 1500));
+        return {
+            status: "success",
+            // Return a placeholder or the same image as base64 if needed for mock
+            // For now, just a dummy string to satisfy type, logic should handle it.
+            image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", 
+            floor_boundary: []
+        };
+    }
+
+  const formData = new FormData();
+  formData.append('file', imageFile);
+  formData.append('x', x.toString());
+  formData.append('y', y.toString());
+
+  try {
+    console.log('API 요청 시작: /remove-object', { x, y });
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}/remove-object`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log('API 응답 상태:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API remove-object 에러:', errorText);
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('가구 삭제 완료:', data.status);
+    return data;
+  } catch (error) {
+    console.error('removeObject Error:', error);
+    throw error;
+  }
+};
+
 

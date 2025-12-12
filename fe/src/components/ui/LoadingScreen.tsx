@@ -5,10 +5,13 @@ import React, { useState, useEffect } from 'react';
 // Props: 로딩이 끝났을 때 실행할 콜백 함수
 interface LoadingProps {
   onComplete?: () => void; // Optional now, since parent controls flow mostly
-  loadingProgress: number; // 0 to 100
+  loadingProgress?: number; // 0 to 100
+  variant?: 'full' | 'overlay'; // full: 초기 로딩, overlay: 작업 중 로딩
 }
 
-export default function LoadingScreen({ loadingProgress }: LoadingProps) {
+import { Loader2 } from 'lucide-react';
+
+export default function LoadingScreen({ loadingProgress = 0, variant = 'full' }: LoadingProps) {
   // progress state removed, using prop directly
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -25,8 +28,20 @@ export default function LoadingScreen({ loadingProgress }: LoadingProps) {
     setCurrentStep(stepIndex);
   }, [loadingProgress]);
 
-  // 내부 타이머 로직 제거됨
+  // Variant: Overlay (Simple Blur + Spinner)
+  if (variant === 'overlay') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in">
+        <div className="bg-white/10 p-8 rounded-3xl backdrop-blur-xl border border-white/20 shadow-2xl flex flex-col items-center transform scale-110">
+            <Loader2 className="w-12 h-12 text-blue-400 animate-spin mb-4" />
+            <p className="text-xl font-bold tracking-wide">AI가 작업을 수행 중입니다...</p>
+            <p className="text-sm text-gray-300 mt-2">잠시만 기다려주세요</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Variant: Full (Original Intro)
   return (
     <div className="min-h-screen w-full overflow-hidden bg-white relative flex items-center justify-center font-sans">
        <div className="absolute inset-0 z-0" style={{ background: 'radial-gradient(circle at 50% 50%, #f8fafc 0%, #e2e8f0 100%)' }} />
