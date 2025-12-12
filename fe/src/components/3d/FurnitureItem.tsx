@@ -20,10 +20,9 @@ type ManipulationMode = 'translate' | 'rotate';
 
 interface ModelLoaderProps {
   modelUrl: string;
-  onLoaded?: (yOffset: number) => void;
 }
 
-function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
+function ModelLoader({ modelUrl }: ModelLoaderProps) {
   // Ngrok URL일 때만 Warning Bypass Header 추가
   const { scene } = useGLTF(modelUrl, true, true, (loader) => {
     if (modelUrl.includes('ngrok')) {
@@ -32,23 +31,11 @@ function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
   });
 
   // Clone and Normalize
-  const { clone, yOffset } = React.useMemo(() => {
+  const clone = React.useMemo(() => {
     const c = scene.clone(true);
-    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Centered)
-    
-    // Calculate Height Offset
-    const box = new Box3().setFromObject(c);
-    const size = new Vector3();
-    box.getSize(size);
-    return { clone: c, yOffset: size.y / 2 };
+    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Bottom at 0)
+    return c;
   }, [scene]);
-
-  // Notify parent of the offset required to ground the object
-  React.useEffect(() => {
-    if (onLoaded) {
-      onLoaded(yOffset);
-    }
-  }, [yOffset, onLoaded]);
 
   return (
     <primitive object={clone} />
@@ -195,18 +182,9 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
         ) : (
            <React.Suspense fallback={<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="gray" wireframe /></mesh>}>
              <group>
-               <ModelLoader 
-                 modelUrl={modelUrl} 
-                 onLoaded={(yOffset) => {
-                   // 초기 배치(바닥 Y=0)인 경우에만 오프셋 적용하여 위로 올림
-                   // 이미 저장된 위치라면(0이 아니면) 건너뜀
-                   if (Math.abs(position[1]) < 0.001) {
-                      updateFurniture(id, {
-                        position: [position[0], position[1] + yOffset, position[2]]
-                      });
-                   }
-                 }}
-               />
+                <ModelLoader 
+                  modelUrl={modelUrl} 
+                />
                {/* Selection Highlight for Model - Scale에 맞춰 조정 */}
                {isSelected && (
                   <mesh>

@@ -28,7 +28,7 @@ export const normalizeModel = (object: Object3D, targetSize: number = 1.5) => {
   box.getCenter(center);
   
   object.position.x = -center.x * scaleFactor;
-  object.position.y = -center.y * scaleFactor; // Y축도 중심으로 정렬
+  object.position.y = -box.min.y * scaleFactor; // Y축은 바닥(Min Y)을 0으로 맞춤
   object.position.z = -center.z * scaleFactor;
 
   // Update Matrix to apply changes immediately if needed
