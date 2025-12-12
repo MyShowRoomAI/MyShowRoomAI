@@ -5,7 +5,8 @@ export const API_CONFIG = {
   
   // Next.js 프록시를 통해 CORS 우회
   // /api/* 요청은 next.config.ts의 rewrites 설정에 의해 실제 백엔드로 전달됨
-  BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+  // BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
+  BASE_URL: '/api' //테스트
 } as const;
 
 // 개발 환경에서 API URL 확인
