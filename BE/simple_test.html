@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyShowRoom AI - Backend Tester</title>
+    <style>
+        body { font-family: sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .panel { flex: 1; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        input[type="text"] { width: 100%; padding: 8px; margin-bottom: 10px; box-sizing: border-box; }
+        canvas { border: 2px solid #333; cursor: crosshair; max-width: 100%; }
+        #resultImg { max-width: 100%; border: 2px solid #00AAFF; display: none; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; }
+        .log { background: #f0f0f0; padding: 10px; margin-top: 10px; white-space: pre-wrap; height: 100px; overflow-y: scroll; font-family: monospace; }
+        .coords { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🛠️ MyShowRoom AI - 기능 테스트</h1>
+    
+    <label>Ngrok Server URL:</label>
+    <input type="text" id="serverUrl" placeholder="https://xxxx-xx-xx-xx.ngrok-free.app" value="">
+    
+    <div class="container">
+        <!-- 왼쪽: 원본 및 클릭 -->
+        <div class="panel">
+            <h3>1. 이미지 업로드 & 클릭 (좌표 지정)</h3>
+            <input type="file" id="fileInput" accept="image/*">
+            <p>이미지를 클릭하여 <b>지울 물체</b>를 선택하세요.</p>
+            <p class="coords">Selected Point: <span id="pointDisplay">(None)</span></p>
+            <canvas id="inputCanvas"></canvas>
+            <button id="btnRemove" disabled>🧹 물체 지우기 요청</button>
+        </div>
+        <!-- 오른쪽: 결과 -->
+        <div class="panel">
+            <h3>2. 결과 확인</h3>
+            <div id="loading" style="display:none;">⏳ 처리 중... (약 20~30초 소요)</div>
+            <img id="resultImg" alt="Result">
+            <canvas id="resultCanvas" style="display:none;"></canvas>
+            <div class="log" id="logArea">Logs will appear here...</div>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('inputCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultCanvas = document.getElementById('resultCanvas');
+        const resCtx = resultCanvas.getContext('2d');
+        
+        let originalImage = null;
+        let selectedX = 0;
+        let selectedY = 0;
+        let scale = 1;
+        // 1. 이미지 로드
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    // 캔버스 크기 조정 (최대 폭 600px 제한)
+                    const MAX_W = 600;
+                    scale = img.width > MAX_W ? MAX_W / img.width : 1;
+                    
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    document.getElementById('btnRemove').disabled = true;
+                    log("Image loaded. Click on an object to check coordinates.");
+                }
+                img.src = event.target.result;
+            }
+            reader.readAsDataURL(file);
+        });
+        // 2. 좌표 클릭 (이미지 상에서 클릭)
+        canvas.addEventListener('click', (e) => {
+            if (!originalImage) return;
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            // 원본 좌표로 변환
+            selectedX = Math.round(clickX / scale);
+            selectedY = Math.round(clickY / scale);
+            document.getElementById('pointDisplay').innerText = `X: ${selectedX}, Y: ${selectedY}`;
+            document.getElementById('btnRemove').disabled = false;
+            // 클릭 지점 표시
+            ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height); // 초기화
+            ctx.beginPath();
+            ctx.arc(clickX, clickY, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.stroke();
+        });
+        // 3. API 요청 (Remove Object)
+        document.getElementById('btnRemove').addEventListener('click', async () => {
+            const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, "");
+            if (!serverUrl) { alert("Server URL을 입력하세요!"); return; }
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("x", selectedX);
+            formData.append("y", selectedY);
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('resultImg').style.display = 'none';
+            resultCanvas.style.display = 'none';
+            log("Sending request to /remove-object...");
+            try {
+                const response = await fetch(`${serverUrl}/remove-object`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                if (data.status === 'success') {
+                    log("✅ Success!");
+                    log(`Floor Boundary Points: ${data.floor_boundary.length}`);
+                    
+                    // (1) Base64 이미지 표시
+                    const resultImg = new Image();
+                    resultImg.onload = () => {
+                        // 결과 캔버스 설정
+                        const displayScale = 600 / resultImg.width;
+                        resultCanvas.width = 600;
+                        resultCanvas.height = resultImg.height * displayScale;
+                        resultCanvas.style.display = 'block';
+                        
+                        // 이미지 그리기
+                        resCtx.drawImage(resultImg, 0, 0, resultCanvas.width, resultCanvas.height);
+                        
+                        // (2) 바닥 경계선 그리기 (초록색)
+                        if (data.floor_boundary && data.floor_boundary.length > 0) {
+                            resCtx.beginPath();
+                            resCtx.strokeStyle = '#00FF00';
+                            resCtx.lineWidth = 3;
+                            
+                            data.floor_boundary.forEach((pt, index) => {
+                                // 좌표 스케일링 (원본 -> 화면 표시용)
+                                const px = pt.x * displayScale;
+                                const py = pt.y * displayScale;
+                                
+                                if (index === 0) resCtx.moveTo(px, py);
+                                else resCtx.lineTo(px, py);
+                            });
+                            resCtx.stroke();
+                            log("Boundary drawn in GREEN.");
+                        }
+                    };
+                    resultImg.src = data.image; // Base64 String
+                    
+                } else {
+                    log("❌ Error: " + JSON.stringify(data));
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                log("🚨 Network Error: " + error.message);
+                alert("요청 실패! Ngrok URL이 맞는지 확인하세요.");
+            }
+        });
+        function log(msg) {
+            const logArea = document.getElementById('logArea');
+            logArea.innerText += msg + "\n";
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+    </script>
+</body>
+</html>
