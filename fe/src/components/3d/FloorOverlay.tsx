@@ -52,7 +52,7 @@ function FloorOverlayMesh({ url }: { url: string }) {
   const opacity = mode === 'PLACE' ? 0.3 : 0.1;
 
   return (
-    <mesh scale={[-1, 1, 1]} frustumCulled={false} renderOrder={1}>
+    <mesh scale={[-1, 1, 1]} frustumCulled={false} renderOrder={1} visible={false}>
       <sphereGeometry args={[490, 64, 32]} />
       <meshBasicMaterial 
         map={texture} 
