@@ -51,6 +51,11 @@ interface AppState {
   setFloorMaskUrl: (url: string | null) => void;
   imageSize: { width: number; height: number } | null;
   setImageSize: (size: { width: number; height: number } | null) => void;
+
+  // Semantic Navigation
+  floorMaskData: Uint8ClampedArray | null;
+  maskDimensions: { width: number; height: number } | null;
+  setFloorMaskData: (data: Uint8ClampedArray, width: number, height: number) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -73,6 +78,8 @@ export const useStore = create<AppState>((set, get) => ({
   originalImageFile: null,
   floorMaskUrl: null,
   imageSize: null,
+  floorMaskData: null,
+  maskDimensions: null,
 
   setMode: (mode) => set({ mode }),
   setCursorPosition: (position) => {
@@ -154,13 +161,14 @@ export const useStore = create<AppState>((set, get) => ({
     messages: [...state.messages, { id: Date.now(), ...msg }]
   })),
   
+  // Placement State
+  selectedRecommendation: null,
+  setSelectedRecommendation: (item) => set({ selectedRecommendation: item }),
+
   // Phase A Actions
   setApiBaseUrl: (url) => set({ apiBaseUrl: url }),
   setOriginalImageFile: (file) => set({ originalImageFile: file }),
   setFloorMaskUrl: (url) => set({ floorMaskUrl: url }),
   setImageSize: (size) => set({ imageSize: size }),
-  
-  // Placement State
-  selectedRecommendation: null,
-  setSelectedRecommendation: (item) => set({ selectedRecommendation: item }),
+  setFloorMaskData: (data, width, height) => set({ floorMaskData: data, maskDimensions: { width, height } }),
 }));
