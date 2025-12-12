@@ -64,29 +64,24 @@ else:
 
 # Logic
 class FloorPoint(BaseModel): x: int; y: int
-class RemoveObjectResponse(BaseModel): status: str; image: str; floor_boundary: List[FloorPoint]
-class AnalyzeImageResponse(BaseModel): status: str; floor_boundary: List[FloorPoint]
+class RemoveObjectResponse(BaseModel): status: str; image: str; mask_image: str
+class AnalyzeImageResponse(BaseModel): status: str; mask_image: str
 class ConsultItem(BaseModel): selected_id: str; reason: str; position_suggestion: str; item_details: Optional[Dict[str, Any]] = None
 
-def detect_floor_boundary(image_bgr):
+def detect_floor_boundary(image_bgr) -> str:
     """
-    SegFormer(ADE20K)를 사용하여 '바닥(Floor)' 영역을 찾고, 그 경계선 좌표를 Polygon으로 반환합니다.
-    (OOM 방지를 위해 800px 리사이징 후 처리 -> 좌표 복원)
-    
-    [개선 사항]
-    1. Class Union: Floor(3) + Carpet(9) + Rug(29) + Mat(27)
-    2. Force Bottom: 파노라마 특성상 하단 5%는 무조건 바닥으로 간주
-    3. Morphology: (50,50) Large Kernel Closing으로 가구에 의한 구멍 메움
-    4. External Contour: 내부 구멍 무시하고 전체 방의 바닥 윤곽선만 추출
+    SegFormer(ADE20K)를 사용하여 '바닥(Floor)' 영역을 찾고, 
+    해당 영역을 (0, 255, 0, 100) 색상으로 칠한 투명 PNG 이미지(Base64)를 반환합니다.
     """
     if seg_model is None: 
         print("⚠️ SegModel is None")
-        return []
+        # 실패 시 빈 이미지(또는 투명 이미지) 리턴? 일단 빈 문자열
+        return ""
     
     try:
         original_h, original_w = image_bgr.shape[:2]
         
-        # 1. Resize for Inference (Memory Save & Detail Balance)
+        # 1. Resize for Inference
         TARGET_SIZE = 800 
         scale = TARGET_SIZE / max(original_h, original_w)
         new_h, new_w = int(original_h * scale), int(original_w * scale)
@@ -100,9 +95,8 @@ def detect_floor_boundary(image_bgr):
         with torch.no_grad():
             outputs = seg_model(**inputs)
             
-        # 3. Post-processing (Low Res)
+        # 3. Post-processing (Upsample logits to resized_img size)
         logits = outputs.logits
-        # Logits를 리사이즈된 크기(new_h, new_w)까지만 복원
         upsampled_logits = torch.nn.functional.interpolate(
             logits, size=(new_h, new_w), mode="bilinear", align_corners=False
         )
@@ -112,58 +106,60 @@ def detect_floor_boundary(image_bgr):
         # 4. Floor Mask Enriched (Class Union)
         # ADE20K Index: 3=Floor, 9=Carpet, 27=Mat, 29=Rug
         floor_classes = [3, 9, 27, 29]
-        floor_mask = np.isin(pred_seg, floor_classes).astype(np.uint8) * 255
+        floor_mask_binary = np.isin(pred_seg, floor_classes).astype(np.uint8) # 0 or 1
         
-        # [Panorama Specific] Force Bottom Edge
-        # 이미지 하단 5%는 무조건 바닥이라고 가정 (끊김 방지)
+        # [Panorama Specific] Force Bottom Edge (5%)
         force_bottom_h = int(new_h * 0.95)
-        floor_mask[force_bottom_h:, :] = 255
+        floor_mask_binary[force_bottom_h:, :] = 1
 
-        # 5. Morphological Closing (Aggressive)
-        # 가구(침대, 책상 등)로 인해 끊긴 바닥을 하나로 잇기 위해 매우 큰 커널 사용
-        kernel_size = 50 # 800px 기준 50px면 꽤 큼
+        # 5. Morphology (Closing) - 구멍 메우기
+        kernel_size = 50 
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
-        floor_mask = cv2.morphologyEx(floor_mask, cv2.MORPH_CLOSE, kernel)
+        floor_mask_binary = cv2.morphologyEx(floor_mask_binary, cv2.MORPH_CLOSE, kernel)
         
-        # 6. Find Contours
-        # RETR_EXTERNAL: 구멍(가구)는 무시하고 가장 바깥쪽 외곽선만 땀
-        contours, _ = cv2.findContours(floor_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # [NEW] Fill Internal Holes (Furniture)
+        # Find external contours and fill them. This creates a solid mask without holes.
+        # [Fix] Use bitwise_or to ensure we don't lose the original mask if contours fail
+        contours, hierarchy = cv2.findContours(floor_mask_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            print(f"✅ Found {len(contours)} contours for floor filling")
+            filled_mask = np.zeros_like(floor_mask_binary)
+            cv2.drawContours(filled_mask, contours, -1, 1, thickness=cv2.FILLED)
+            floor_mask_binary = cv2.bitwise_or(floor_mask_binary, filled_mask)
+        else:
+            print("⚠️ No contours found for floor, keeping original")
+
+        # 6. Create RGBA Image
+        # Base: All transparent (0,0,0,0)
+        rgba_image = np.zeros((new_h, new_w, 4), dtype=np.uint8)
         
-        if not contours:
-            print("❌ No contour found")
-            return []
-            
-        largest_contour = max(contours, key=cv2.contourArea)
+        # Floor Area: Green (0, 255, 0) with Alpha 200
+        # channel顺序: B, G, R, A
         
-        # 7. Approx Poly (Straight Lines)
-        # 0.005: 적당히 직선화하여 깔끔한 바닥 폴리곤 생성
-        epsilon = 0.005 * cv2.arcLength(largest_contour, True)
-        approx_curve = cv2.approxPolyDP(largest_contour, epsilon, True)
+        # Mask condition
+        mask_bool = (floor_mask_binary >= 1)
         
-        # 8. Restore Coordinates to Original Scale
-        points = []
-        for p in approx_curve:
-            px_low = p[0][0]
-            py_low = p[0][1]
+        rgba_image[mask_bool, 0] = 0   # Blue
+        rgba_image[mask_bool, 1] = 255 # Green
+        rgba_image[mask_bool, 2] = 0   # Red
+        rgba_image[mask_bool, 3] = 200 # Alpha
+        
+        # 7. Encode to PNG (Preserves Alpha)
+        is_success, buffer = cv2.imencode(".png", rgba_image)
+        if not is_success:
+            print("❌ Failed to encode png")
+            return ""
             
-            # Scale Back
-            px_orig = int(px_low / scale)
-            py_orig = int(py_low / scale)
-            
-            # Clamp
-            px_orig = max(0, min(original_w-1, px_orig))
-            py_orig = max(0, min(original_h-1, py_orig))
-            
-            points.append({'x': px_orig, 'y': py_orig})
-            
-        print(f"✅ Floor Boundary: {len(points)} points")
-        return points
+        # 8. Base64 Encode
+        import base64
+        mask_base64 = base64.b64encode(buffer).decode("utf-8")
+        
+        print("✅ Floor Mask Generated (Base64)")
+        return f"data:image/png;base64,{mask_base64}"
             
     except Exception as e:
         print(f"⚠️ Floor detection failed: {e}")
-        # import traceback
-        # traceback.print_exc()
-        return []
+        return ""
 
 def process_removal(image_bytes: bytes, x: int, y: int):
     """
@@ -273,7 +269,7 @@ def process_removal(image_bytes: bytes, x: int, y: int):
 @app.post("/remove-object", response_model=RemoveObjectResponse)
 async def remove_object(file: UploadFile = File(...), x: int = Form(...), y: int = Form(...)):
     res = process_removal(await file.read(), x, y)
-    floor_coords = detect_floor_boundary(res)
+    mask_img = detect_floor_boundary(res)
     is_success, buffer = cv2.imencode(".jpg", res, [int(cv2.IMWRITE_JPEG_QUALITY), 95])
     
     import base64
@@ -282,7 +278,7 @@ async def remove_object(file: UploadFile = File(...), x: int = Form(...), y: int
     return RemoveObjectResponse(
         status="success",
         image=f"data:image/jpeg;base64,{img_base64}",
-        floor_boundary=floor_coords
+        mask_image=mask_img
     )
 
 @app.post("/analyze-image", response_model=AnalyzeImageResponse)
@@ -298,12 +294,12 @@ async def analyze_image(file: UploadFile = File(...)):
         if image is None: raise HTTPException(status_code=400, detail="Invalid image")
             
         # Run Detection (Auto-Scaling included)
-        floor_coords = detect_floor_boundary(image)
-        print(f"✅ Floor Coords Found: {len(floor_coords)} points (Scaled to Original)")
+        mask_img = detect_floor_boundary(image)
+        print(f"✅ Floor Mask Created")
         
         return AnalyzeImageResponse(
             status="success",
-            floor_boundary=floor_coords
+            mask_image=mask_img
         )
         
     except Exception as e:

@@ -11,7 +11,7 @@ export default function LandingScreen() {
   const setIsLoading = useStore((state) => state.setIsLoading);
   const setOriginalImageFile = useStore((state) => state.setOriginalImageFile);
   const originalImageFile = useStore((state) => state.originalImageFile);
-  const setFloorBoundary = useStore((state) => state.setFloorBoundary);
+  const setFloorMaskUrl = useStore((state) => state.setFloorMaskUrl);
   const setImageSize = useStore((state) => state.setImageSize);
 
   const [hasImage, setHasImage] = useState(false);
@@ -70,10 +70,14 @@ export default function LandingScreen() {
     try {
       // 2. 방 구조 분석 API 호출
       const result = await analyzeRoomStructure(originalImageFile);
-      console.log('바닥 경계 좌표:', result.floor_boundary);
+      console.log('바닥 마스크 이미지:', result.mask_image ? 'Found' : 'Not Found');
       
+      if (!result.mask_image) {
+          alert("경고: 바닥 마스크를 받아오지 못했습니다. 백엔드(Colab) 코드가 최신 버전인지 확인해주세요.");
+      }
+
       // 3. 바닥 경계 데이터 저장
-      setFloorBoundary(result.floor_boundary);
+      setFloorMaskUrl(result.mask_image);
       
       // 4. 파노라마 이미지 적용
       setTextureUrl(previewUrl);
