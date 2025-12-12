@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL}/:path*`,
+        // [변경] 환경변수 대신 직접 URL 입력 (프록시 타겟)
+        destination: `https://meliorative-untypical-ali.ngrok-free.dev/:path*`,
       },
     ];
   },
