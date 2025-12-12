@@ -20,10 +20,9 @@ type ManipulationMode = 'translate' | 'rotate';
 
 interface ModelLoaderProps {
   modelUrl: string;
-  onLoaded?: (yOffset: number) => void;
 }
 
-function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
+function ModelLoader({ modelUrl }: ModelLoaderProps) {
   // Ngrok URL일 때만 Warning Bypass Header 추가
   const { scene } = useGLTF(modelUrl, true, true, (loader) => {
     if (modelUrl.includes('ngrok')) {
@@ -32,23 +31,11 @@ function ModelLoader({ modelUrl, onLoaded }: ModelLoaderProps) {
   });
 
   // Clone and Normalize
-  const { clone, yOffset } = React.useMemo(() => {
+  const clone = React.useMemo(() => {
     const c = scene.clone(true);
-    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Centered)
-    
-    // Calculate Height Offset
-    const box = new Box3().setFromObject(c);
-    const size = new Vector3();
-    box.getSize(size);
-    return { clone: c, yOffset: size.y / 2 };
+    normalizeModel(c, 1.05); // Auto-Scale to 1.05m (Bottom at 0)
+    return c;
   }, [scene]);
-
-  // Notify parent of the offset required to ground the object
-  React.useEffect(() => {
-    if (onLoaded) {
-      onLoaded(yOffset);
-    }
-  }, [yOffset, onLoaded]);
 
   return (
     <primitive object={clone} />
@@ -195,18 +182,9 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
         ) : (
            <React.Suspense fallback={<mesh><boxGeometry args={[1,1,1]} /><meshStandardMaterial color="gray" wireframe /></mesh>}>
              <group>
-               <ModelLoader 
-                 modelUrl={modelUrl} 
-                 onLoaded={(yOffset) => {
-                   // 초기 배치(바닥 Y=0)인 경우에만 오프셋 적용하여 위로 올림
-                   // 이미 저장된 위치라면(0이 아니면) 건너뜀
-                   if (Math.abs(position[1]) < 0.001) {
-                      updateFurniture(id, {
-                        position: [position[0], position[1] + yOffset, position[2]]
-                      });
-                   }
-                 }}
-               />
+                <ModelLoader 
+                  modelUrl={modelUrl} 
+                />
                {/* Selection Highlight for Model - Scale에 맞춰 조정 */}
                {isSelected && (
                   <mesh>
@@ -228,7 +206,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
           <div className="whitespace-nowrap bg-black/80 text-white px-3 py-1.5 rounded-lg text-sm font-medium backdrop-blur-sm border border-white/20 shadow-xl flex flex-col items-center gap-1">
             <div className="text-xs text-gray-300 uppercase tracking-wider">Mode</div>
             <div className="text-base font-bold text-blue-400">
-              {manipulationMode === 'translate' ? '이동 (Translate)' : '회전 (Rotate)'}
+              {manipulationMode === 'translate' ? 'Translate' : 'Rotate'}
             </div>
             <div className="h-px w-full bg-white/20 my-1" />
             <div className="flex gap-2 text-xs">
@@ -239,7 +217,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
                 }}
                 className={`kb-button ${manipulationMode === 'rotate' ? 'kb-button-active' : 'kb-button-inactive'}`}
               >
-                <span className="kb-key">[R]</span> 회전
+                <span className="kb-key">[R]</span> Rotate
               </button>
               <button
                 onClick={(e) => {
@@ -248,7 +226,7 @@ export default function FurnitureItem({ id, position, rotation, isSelected, onSe
                 }}
                 className={`kb-button ${manipulationMode === 'translate' ? 'kb-button-active' : 'kb-button-inactive'}`}
               >
-                <span className="kb-key">[T]</span> 이동
+                <span className="kb-key">[T]</span> Translate
               </button>
             </div>
           </div>

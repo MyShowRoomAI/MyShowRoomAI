@@ -122,11 +122,39 @@ export const analyzeRoomStructure = async (
 ): Promise<{ status: string; mask_image: string }> => {
   // Mock API 사용
   if (API_CONFIG.USE_MOCK_API) {
-    console.log('🔄 Using Mock API for room analysis');
-    await new Promise(r => setTimeout(r, 1500)); // 1.5초 대기
+    console.log('🔄 Using Mock API for room analysis (Generated Canvas)');
+    await new Promise(r => setTimeout(r, 1500)); 
+    
+    // Create a larger mock mask (512x256)
+    // Top 70% transparent, Bottom 30% Green
+    // This allows testing the "Pixel Picking" somewhat realistically
+    if (typeof document !== 'undefined') {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            // Clear (Transparent)
+            ctx.clearRect(0, 0, 512, 256);
+            
+            // Draw Bottom 30% Green
+            const floorH = 256 * 0.3;
+            const startY = 256 - floorH;
+            ctx.fillStyle = 'rgba(0, 255, 0, 1.0)';
+            ctx.fillRect(0, startY, 512, floorH);
+            
+            const mockMaskImage = canvas.toDataURL('image/png');
+            return {
+                status: "success",
+                mask_image: mockMaskImage,
+            };
+        }
+    }
+    
+    // Fallback if no document (SSR?)
     return {
       status: "success",
-      mask_image: "", // Mock Data: Empty for now
+      mask_image: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAAXNSR0IArs4c6QAAACklEQVQImWNgQAYiIyP/UywsDNugIiKCXRgYGP5D2A0MDAx/IBz0gwEAPEwWwbVk7WAAAAAASUVORK5CYII=", 
     };
   }
 

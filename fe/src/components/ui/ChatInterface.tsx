@@ -25,7 +25,7 @@ export default function ChatInterface() {
 
     // 유효성 검사: 원본 이미지 파일 확인
     if (!originalImageFile) {
-      addMessage({ sender: 'gemini', text: '원본 이미지 파일이 없습니다. 먼저 이미지를 업로드해 주세요.' });
+      addMessage({ sender: 'gemini', text: 'No original image found. Please upload an image first.' });
       return;
     }
 
@@ -47,7 +47,7 @@ export default function ChatInterface() {
       
     } catch (error) {
       console.error("API Error:", error);
-      addMessage({ sender: 'gemini', text: "API 호출 중 오류가 발생했습니다. URL과 네트워크 연결을 확인해 주세요." });
+      addMessage({ sender: 'gemini', text: "API Error. Please check the URL and network connection." });
     } finally {
       setIsLoading(false);
     }

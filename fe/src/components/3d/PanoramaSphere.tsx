@@ -79,8 +79,8 @@ export default function PanoramaSphere() {
     if (!uv) return;
 
     // Get real image dimensions from the loaded texture
-    const imageWidth = (texture.image as HTMLImageElement).width;
-    const imageHeight = (texture.image as HTMLImageElement).height;
+    const imageWidth = (texture.image as any).width;
+    const imageHeight = (texture.image as any).height;
 
     // Convert UV to Pixel Coordinates
     // Note: sphere UV mapping might need horizontal flip (1-u) depending on geometry
@@ -141,7 +141,7 @@ export default function PanoramaSphere() {
       }
     } catch (error) {
       console.error("Failed to remove object:", error);
-      alert("가구 삭제에 실패했습니다.");
+      alert("Failed to remove object.");
     } finally {
       setIsLoading(false);
     }
@@ -196,7 +196,7 @@ export default function PanoramaSphere() {
                                     to { opacity: 1; transform: translateY(0); }
                                 }
                             `}</style>
-                            <p style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 500 }}>이 가구를 지우시겠습니까?</p>
+                            <p style={{ margin: '0 0 12px 0', fontSize: '15px', fontWeight: 500 }}>Do you want to remove this object?</p>
                             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                                 <button 
                                     onClick={handleConfirmRemove}
@@ -214,7 +214,7 @@ export default function PanoramaSphere() {
                                     onMouseOver={(e) => e.currentTarget.style.background = '#dc2626'}
                                     onMouseOut={(e) => e.currentTarget.style.background = '#ef4444'}
                                 >
-                                    삭제하기
+                                    Remove
                                 </button>
                                 <button 
                                     onClick={handleCancel}
@@ -237,7 +237,7 @@ export default function PanoramaSphere() {
                                         e.currentTarget.style.color = '#e5e5e5';
                                     }}
                                 >
-                                    취소
+                                    Cancel
                                 </button>
                             </div>
                         </div>

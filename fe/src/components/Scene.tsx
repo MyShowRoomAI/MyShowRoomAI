@@ -7,7 +7,6 @@ import { useStore } from '@/store/useStore';
 import FurnitureItem from './3d/FurnitureItem';
 import PanoramaSphere from './3d/PanoramaSphere';
 import InvisibleRoom from './3d/InvisibleRoom';
-import FloorGuide from './3d/FloorGuide';
 import FloorOverlay from './3d/FloorOverlay';
 import GhostFurniture from './3d/GhostFurniture';
 
@@ -57,7 +56,7 @@ export default function Scene() {
         <InvisibleRoom />
 
         {/* Visual Floor Guide - PLACE 모드이거나 Debug 모드일 때 표시 */}
-        {(mode === 'PLACE' || isDebugMode) && <FloorGuide />}
+        <InvisibleRoom />
 
 
 

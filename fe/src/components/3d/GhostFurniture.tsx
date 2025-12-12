@@ -24,16 +24,10 @@ function GhostModel({ modelUrl, position, isColliding }: { modelUrl: string, pos
     if (!scene) return null;
     const clone = scene.clone(true);
     
-    // Auto-Scaling 적용 (1.5m 크기로 정규화, 중심점 정렬)
-    normalizeModel(clone, 1.5);
+    // Auto-Scaling 적용 (1.05m 크기로 정규화, 바닥 정렬)
+    normalizeModel(clone, 1.05);
     
-    // Y축 Offest 계산 (바닥에 안착시키기 위함)
-    const box = new Box3().setFromObject(clone);
-    const size = new Vector3();
-    box.getSize(size);
-    const yOffset = size.y / 2;
-
-    return { clone, yOffset };
+    return { clone };
   }, [scene]);
 
   // Ghost Material 적용 (반투명)
@@ -58,10 +52,9 @@ function GhostModel({ modelUrl, position, isColliding }: { modelUrl: string, pos
   if (!clonedScene) return null;
 
   return (
-    <primitive 
-      object={clonedScene.clone} 
-      position={[position[0], position[1] + clonedScene.yOffset, position[2]]} 
-    />
+    <group position={[position[0], position[1], position[2]]}>
+      <primitive object={clonedScene.clone} />
+    </group>
   );
 }
 
