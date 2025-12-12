@@ -13,17 +13,14 @@ from PIL import Image
 import cv2
 import numpy as np
 import torch
+# [수정] SegFormer 대신 BEiT (MIT License) 임포트
+from transformers import BeitImageProcessor, BeitForSemanticSegmentation
 from segment_anything import sam_model_registry, SamPredictor
-from transformers import SegformerImageProcessor, SegformerForSemanticSegmentation
 from pydantic import BaseModel
 from google.colab import userdata
 
 # ==========================================
 # [TODO] API Key 설정
-# 해커톤 제출용이라면 여기에 직접 키를 넣는 것이 심사위원에게 편합니다.
-# 보안이 중요하다면 userdata 방식을 유지하세요.
-# GOOGLE_API_KEY = "YOUR_DEMO_KEY_HERE"
-# NGROK_AUTH_TOKEN = "YOUR_DEMO_TOKEN_HERE"
 # ==========================================
 try:
     if 'GOOGLE_API_KEY' not in locals():
@@ -31,7 +28,7 @@ try:
     if 'NGROK_AUTH_TOKEN' not in locals():
         NGROK_AUTH_TOKEN = userdata.get('NGROK_AUTH_TOKEN')
 except:
-    pass # 키가 직접 입력된 경우
+    pass 
 
 client = genai.Client(api_key=GOOGLE_API_KEY)
 genai_legacy.configure(api_key=GOOGLE_API_KEY)
@@ -39,16 +36,21 @@ genai_legacy.configure(api_key=GOOGLE_API_KEY)
 # Init Models
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# SAM
+# 1. SAM (Segment Anything Model) - Apache 2.0 (OSI Approved)
 sam = sam_model_registry["vit_h"](checkpoint="sam_vit_h_4b8939.pth")
 sam.to(device=device)
 predictor = SamPredictor(sam)
 
-# SegFormer
-processor = SegformerImageProcessor.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
-seg_model = SegformerForSemanticSegmentation.from_pretrained("nvidia/segformer-b0-finetuned-ade-512-512")
+# 2. [교체 완료] Semantic Segmentation Model
+# Model: Microsoft BEiT (Base)
+# License: MIT License (OSI Approved, Commercial Use OK)
+# Dataset: ADE20K (Contains Floor, Rug, Carpet classes)
+print("⏳ Loading Microsoft BEiT Model (MIT License)...")
+processor = BeitImageProcessor.from_pretrained("microsoft/beit-base-finetuned-ade-640-640")
+seg_model = BeitForSemanticSegmentation.from_pretrained("microsoft/beit-base-finetuned-ade-640-640")
 seg_model.to(device)
 seg_model.eval()
+print("✅ BEiT Model Loaded.")
 
 # App Setup
 app = FastAPI()
@@ -62,7 +64,7 @@ if os.path.exists("furniture_db.json"):
 else:
     FURNITURE_DB = []
 
-# Logic
+# Pydantic Models
 class FloorPoint(BaseModel): x: int; y: int
 class RemoveObjectResponse(BaseModel): status: str; image: str; mask_image: str
 class AnalyzeImageResponse(BaseModel): status: str; mask_image: str
@@ -70,18 +72,18 @@ class ConsultItem(BaseModel): selected_id: str; reason: str; position_suggestion
 
 def detect_floor_boundary(image_bgr) -> str:
     """
-    SegFormer(ADE20K)를 사용하여 '바닥(Floor)' 영역을 찾고, 
-    해당 영역을 (0, 255, 0, 100) 색상으로 칠한 투명 PNG 이미지(Base64)를 반환합니다.
+    Microsoft BEiT(ADE20K)를 사용하여 '바닥(Floor)' 영역을 찾고, 
+    해당 영역을 마스크 이미지(Base64)로 반환합니다.
     """
     if seg_model is None: 
         print("⚠️ SegModel is None")
-        # 실패 시 빈 이미지(또는 투명 이미지) 리턴? 일단 빈 문자열
         return ""
     
     try:
         original_h, original_w = image_bgr.shape[:2]
         
-        # 1. Resize for Inference
+        # 1. Resize logic for BEiT
+        # BEiT는 내부적으로 리사이징을 처리하지만, 너무 큰 이미지는 속도를 위해 적절히 줄여서 넣습니다.
         TARGET_SIZE = 800 
         scale = TARGET_SIZE / max(original_h, original_w)
         new_h, new_w = int(original_h * scale), int(original_w * scale)
@@ -95,8 +97,10 @@ def detect_floor_boundary(image_bgr) -> str:
         with torch.no_grad():
             outputs = seg_model(**inputs)
             
-        # 3. Post-processing (Upsample logits to resized_img size)
+        # 3. Post-processing
+        # BEiT의 출력 로직은 SegFormer와 거의 동일합니다.
         logits = outputs.logits
+        # 이미지가 리사이즈된 크기(new_h, new_w)로 업샘플링
         upsampled_logits = torch.nn.functional.interpolate(
             logits, size=(new_h, new_w), mode="bilinear", align_corners=False
         )
@@ -104,11 +108,13 @@ def detect_floor_boundary(image_bgr) -> str:
         pred_seg = upsampled_logits.argmax(dim=1)[0].cpu().numpy()
         
         # 4. Floor Mask Enriched (Class Union)
-        # ADE20K Index: 3=Floor, 9=Carpet, 27=Mat, 29=Rug
+        # ADE20K Index는 SegFormer와 동일합니다 (표준 데이터셋 인덱스 사용)
+        # 3=Floor, 9=Carpet, 27=Mat, 29=Rug
         floor_classes = [3, 9, 27, 29]
         floor_mask_binary = np.isin(pred_seg, floor_classes).astype(np.uint8) # 0 or 1
         
         # [Panorama Specific] Force Bottom Edge (5%)
+        # 파노라마 하단부는 무조건 바닥이라는 가정
         force_bottom_h = int(new_h * 0.95)
         floor_mask_binary[force_bottom_h:, :] = 1
 
@@ -117,44 +123,33 @@ def detect_floor_boundary(image_bgr) -> str:
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
         floor_mask_binary = cv2.morphologyEx(floor_mask_binary, cv2.MORPH_CLOSE, kernel)
         
-        # [NEW] Fill Internal Holes (Furniture)
-        # Find external contours and fill them. This creates a solid mask without holes.
-        # [Fix] Use bitwise_or to ensure we don't lose the original mask if contours fail
+        # Fill Internal Holes (가구 자리 메우기)
         contours, hierarchy = cv2.findContours(floor_mask_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         if contours:
-            print(f"✅ Found {len(contours)} contours for floor filling")
             filled_mask = np.zeros_like(floor_mask_binary)
             cv2.drawContours(filled_mask, contours, -1, 1, thickness=cv2.FILLED)
             floor_mask_binary = cv2.bitwise_or(floor_mask_binary, filled_mask)
-        else:
-            print("⚠️ No contours found for floor, keeping original")
 
         # 6. Create RGBA Image
-        # Base: All transparent (0,0,0,0)
         rgba_image = np.zeros((new_h, new_w, 4), dtype=np.uint8)
-        
-        # Floor Area: Green (0, 255, 0) with Alpha 200
-        # channel顺序: B, G, R, A
         
         # Mask condition
         mask_bool = (floor_mask_binary >= 1)
         
-        rgba_image[mask_bool, 0] = 0   # Blue
-        rgba_image[mask_bool, 1] = 255 # Green
-        rgba_image[mask_bool, 2] = 0   # Red
-        rgba_image[mask_bool, 3] = 200 # Alpha
+        # Green with Alpha 200
+        rgba_image[mask_bool, 0] = 0   # B
+        rgba_image[mask_bool, 1] = 255 # G
+        rgba_image[mask_bool, 2] = 0   # R
+        rgba_image[mask_bool, 3] = 200 # A
         
-        # 7. Encode to PNG (Preserves Alpha)
+        # 7. Encode
         is_success, buffer = cv2.imencode(".png", rgba_image)
-        if not is_success:
-            print("❌ Failed to encode png")
-            return ""
+        if not is_success: return ""
             
-        # 8. Base64 Encode
         import base64
         mask_base64 = base64.b64encode(buffer).decode("utf-8")
         
-        print("✅ Floor Mask Generated (Base64)")
+        print("✅ Floor Mask Generated (BEiT)")
         return f"data:image/png;base64,{mask_base64}"
             
     except Exception as e:
@@ -177,15 +172,12 @@ def process_removal(image_bytes: bytes, x: int, y: int):
         
     original_h, original_w = image.shape[:2]
     
-    # =========================================================
-    # [수정] 해상도를 2048px로 상향 조정 (화질 개선)
-    # =========================================================
-    PROCESS_WIDTH = 2048  # 기존 1024 -> 2048로 변경
+    # 2048px Resizing Strategy
+    PROCESS_WIDTH = 2048
     
     if original_w > PROCESS_WIDTH:
         scale = PROCESS_WIDTH / original_w
         new_h = int(original_h * scale)
-        # 축소할 때는 INTER_AREA가 가장 깨끗하게 줄어듭니다.
         input_image = cv2.resize(image, (PROCESS_WIDTH, new_h), interpolation=cv2.INTER_AREA)
         input_x = int(x * scale)
         input_y = int(y * scale)
@@ -253,12 +245,11 @@ def process_removal(image_bytes: bytes, x: int, y: int):
                         img_data = part.inline_data.data
                         nparr_res = np.frombuffer(img_data, np.uint8)
                         
-                        # Gemini 결과 (2048px)
+                        # Gemini Result
                         res_img = cv2.imdecode(nparr_res, cv2.IMREAD_COLOR)
                         if res_img is None: continue
                         
-                        # (A) Histogram Matching (색감 보정)
-                        # 결과물이 미세하게 사이즈가 다를 수 있으므로 리사이징 먼저 수행
+                        # (A) Histogram Matching
                         res_img_resized = cv2.resize(res_img, (proc_w, proc_h))
                         
                         try:
@@ -268,11 +259,7 @@ def process_removal(image_bytes: bytes, x: int, y: int):
                         except:
                             gemini_final_mid = res_img_resized
                             
-                        # =========================================================
-                        # 🧬 [Hybrid Compositing] 고품질 복원
-                        # =========================================================
-                        
-                        # 1. Upscaling (LANCZOS4 사용 - 선명도 유지에 유리)
+                        # (B) Upscaling & Compositing
                         if original_w != proc_w:
                             gemini_upscaled = cv2.resize(gemini_final_mid, (original_w, original_h), interpolation=cv2.INTER_LANCZOS4)
                             mask_upscaled = cv2.resize(mask_dilated, (original_w, original_h), interpolation=cv2.INTER_NEAREST)
@@ -280,13 +267,13 @@ def process_removal(image_bytes: bytes, x: int, y: int):
                             gemini_upscaled = gemini_final_mid
                             mask_upscaled = mask_dilated
 
-                        # 2. Feathering
+                        # Feathering
                         mask_float = mask_upscaled.astype(np.float32) / 255.0
                         mask_blurred = cv2.GaussianBlur(mask_float, (21, 21), 0)
                         if len(mask_blurred.shape) == 2:
                             mask_blurred = np.dstack([mask_blurred]*3)
 
-                        # 3. Final Composite
+                        # Final Composite
                         original_bgr = image.astype(np.float32)
                         gemini_float = gemini_upscaled.astype(np.float32)
                         
@@ -302,7 +289,7 @@ def process_removal(image_bytes: bytes, x: int, y: int):
             print(f"Attempt {attempt+1} failed: {e}")
             if "429" in str(e) or "quota" in str(e).lower():
                 print("⏳ Quota exceeded. Waiting 40s...")
-                time.sleep(40) # 2048px은 1024px보다 토큰을 더 쓰므로 대기시간을 조금 늘림
+                time.sleep(40)
             elif attempt < max_retries - 1:
                 time.sleep(5)
             else:
@@ -326,7 +313,7 @@ async def remove_object(file: UploadFile = File(...), x: int = Form(...), y: int
 @app.post("/analyze-image", response_model=AnalyzeImageResponse)
 async def analyze_image(file: UploadFile = File(...)):
     """
-    [Phase 9.1] 이미지 구조 분석 (원본 좌표 반환)
+    [Phase 9.1] 이미지 구조 분석 (MIT License Model)
     """
     try:
         contents = await file.read()
@@ -335,9 +322,9 @@ async def analyze_image(file: UploadFile = File(...)):
         
         if image is None: raise HTTPException(status_code=400, detail="Invalid image")
             
-        # Run Detection (Auto-Scaling included)
+        # Run Detection (BEiT)
         mask_img = detect_floor_boundary(image)
-        print(f"✅ Floor Mask Created")
+        print(f"✅ Floor Mask Created (License Safe)")
         
         return AnalyzeImageResponse(
             status="success",
@@ -350,27 +337,22 @@ async def analyze_image(file: UploadFile = File(...)):
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "MyShow Room AI Server Running (Submission Version)"}
+    return {"status": "ok", "message": "MyShow Room AI Server Running (OSI Compliant)"}
 
 @app.post("/consult", response_model=List[ConsultItem])
 async def consult(request: Request, image: UploadFile = File(...), user_prompt: str = Form(None)):
     """
-    [Phase 10] RAG-based Furniture Recommendation (Top 5)
+    [Phase 10] RAG-based Furniture Recommendation
     """
-    # 1. Handle Optional Prompt
     if not user_prompt:
         user_prompt = "Recommend furniture that best matches this room's style."
     print(f"🔍 Consult Request: {user_prompt}")
 
-    # 2. Prepare Image
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents)) # PIL image is not directly used but good for validation
     except Exception as e:
-        print(f"❌ Image Read Error: {e}")
         raise HTTPException(status_code=400, detail="Invalid Image")
 
-    # 3. Prepare Inventory
     if not FURNITURE_DB:
         print("⚠️ Furniture DB is empty!")
     
@@ -379,13 +361,10 @@ async def consult(request: Request, image: UploadFile = File(...), user_prompt: 
         for item in FURNITURE_DB
     ])
 
-    # 4. Construct Prompt
     system_instruction = f"""
     You are an expert interior design curator using the Amazon Berkeley Objects dataset.
-    
-    [Your Goal]
     Analyze the user's room image and their request ("{user_prompt}").
-    Then, SELECT THE TOP 5 BEST ITEMS from the [Inventory List] below that match the request and fit the room style.
+    Then, SELECT THE TOP 5 BEST ITEMS from the [Inventory List] below.
     
     [Inventory List]
     {inventory_text}
@@ -394,30 +373,23 @@ async def consult(request: Request, image: UploadFile = File(...), user_prompt: 
     Return ONLY a JSON Array of objects. No markdown.
     [
         {{
-            "selected_id": "Item ID from list",
+            "selected_id": "Item ID",
             "reason": "Reason in Korean",
             "position_suggestion": "Placement suggestion"
-        }},
-        ...
+        }}
     ]
     """
 
-    # 5. Call Gemini
-    # Use 'client' (New SDK) for consistency with remove-object
     try:
-        # Create Prompt (Text + Image)
         prompt_parts = [
             types.Part.from_bytes(data=contents, mime_type="image/jpeg"),
             system_instruction
         ]
         
-        # Call Gemini (User requested gemini-2.5-flash-lite)
         response = client.models.generate_content(
             model='gemini-2.5-flash-lite', 
             contents=prompt_parts
         )
-        
-        print(f"✅ Gemini Response: {response.text[:100]}...")
         
         cleaned_text = response.text.replace("```json", "").replace("```", "").strip()
         data = json.loads(cleaned_text)
@@ -425,9 +397,8 @@ async def consult(request: Request, image: UploadFile = File(...), user_prompt: 
         
     except Exception as e:
         print(f"❌ Gemini/Parse Error: {e}")
-        data = [] # Return empty list on failure to prevent crash
+        data = []
 
-    # 6. Enrich Results
     results = []
     for d in data:
         selected_id = d.get('selected_id')
@@ -435,7 +406,6 @@ async def consult(request: Request, image: UploadFile = File(...), user_prompt: 
         
         if item:
             det = item.copy()
-            # 3D Model URL Logic
             if det.get('glb_url') and not det['glb_url'].startswith("http"):
                 base_url = str(request.base_url).rstrip("/")
                 path = det['glb_url']
