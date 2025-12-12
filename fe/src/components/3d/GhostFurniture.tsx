@@ -24,8 +24,8 @@ function GhostModel({ modelUrl, position, isColliding }: { modelUrl: string, pos
     if (!scene) return null;
     const clone = scene.clone(true);
     
-    // Auto-Scaling 적용 (1.5m 크기로 정규화, 바닥 정렬)
-    normalizeModel(clone, 1.5);
+    // Auto-Scaling 적용 (1.05m 크기로 정규화, 바닥 정렬)
+    normalizeModel(clone, 1.05);
     
     return { clone };
   }, [scene]);

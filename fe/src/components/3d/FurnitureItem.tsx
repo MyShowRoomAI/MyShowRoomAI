@@ -33,7 +33,7 @@ function ModelLoader({ modelUrl }: ModelLoaderProps) {
   // Clone and Normalize
   const clone = React.useMemo(() => {
     const c = scene.clone(true);
-    normalizeModel(c, 1.5); // Auto-Scale to 1.5m (Bottom at 0)
+    normalizeModel(c, 1.05); // Auto-Scale to 1.05m (Bottom at 0)
     return c;
   }, [scene]);
 
